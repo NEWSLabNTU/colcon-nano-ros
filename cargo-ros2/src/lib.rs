@@ -169,7 +169,35 @@ pub fn install_to_ament(config: InstallConfig) -> Result<()> {
     env::set_current_dir(&config.project_root)?;
 
     // Read package metadata
-    let metadata = MetadataCommand::new()
+    // Pass --config flag to use workspace-level config
+    let mut metadata_cmd = MetadataCommand::new();
+
+    // Look for ros2_cargo_config.toml in workspace build directory
+    // Walk up from project_root to find build/ directory
+    let mut search_dir = Some(config.project_root.parent());
+    let mut config_file_path = None;
+    while let Some(Some(dir)) = search_dir {
+        // Check for build/ros2_cargo_config.toml
+        let potential_build = dir.join("build");
+        if potential_build.exists() {
+            let config_file = potential_build.join("ros2_cargo_config.toml");
+            if config_file.exists() {
+                config_file_path = Some(config_file);
+                break;
+            }
+        }
+        search_dir = Some(dir.parent());
+    }
+
+    // Add --config flag if found
+    if let Some(config_path) = config_file_path {
+        metadata_cmd.other_options(vec![
+            "--config".to_string(),
+            config_path.display().to_string(),
+        ]);
+    }
+
+    let metadata = metadata_cmd
         .exec()
         .wrap_err("Failed to read Cargo metadata")?;
 

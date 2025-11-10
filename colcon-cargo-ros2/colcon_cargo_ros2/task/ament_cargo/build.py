@@ -21,20 +21,25 @@ class AmentCargoBuildTask(TaskExtensionPoint):
 
     This task implements a two-phase approach:
     1. Workspace-level binding generation (done once before all builds)
-    2. Per-package cargo build (just compiles, no binding generation)
+    2. Per-package cargo build with --config flag
 
     The workspace-level binding generation:
     - Discovers all ROS dependencies from ament_index and workspace
     - Generates ALL bindings to build/ros2_bindings/
-    - Detects Cargo workspace(s) and writes .cargo/config.toml
+    - Writes single Cargo config file to build/ros2_cargo_config.toml
     - Uses lock file to ensure only one process does generation
 
-    This eliminates race conditions and improves build performance.
+    Each package build then runs:
+    - cargo build --config build/ros2_cargo_config.toml
+
+    This eliminates race conditions, improves build performance, and avoids
+    conflicts with user's own .cargo/config.toml files.
     """
 
     def __init__(self):  # noqa: D107
         super().__init__()
         satisfies_version(TaskExtensionPoint.EXTENSION_POINT_VERSION, "^1.0")
+        self._build_base = None  # Will be set during workspace binding generation
 
     def add_arguments(self, *, parser):  # noqa: D102
         # Note: --cargo-args is already defined by colcon core, so we don't redefine it
@@ -90,6 +95,9 @@ class AmentCargoBuildTask(TaskExtensionPoint):
         build_base = Path(os.path.abspath(os.path.join(args.build_base, "..")))
         install_base = Path(args.install_base).parent  # install/ directory
 
+        # Store build_base for use in _build_cmd
+        self._build_base = build_base
+
         # Generate workspace-level bindings
         # This uses a lock file, so only the first package will actually generate
         # All other packages will see the lock and skip generation
@@ -124,10 +132,15 @@ class AmentCargoBuildTask(TaskExtensionPoint):
     def _build_cmd(self, cargo_args):
         """Build the cargo build command.
 
-        Since bindings are generated at workspace-level, we just need to run cargo build.
-        The .cargo/config.toml has already been written with all the patches.
+        Since bindings are generated at workspace-level, we pass --config flag
+        to use the single config file in build/ros2_cargo_config.toml.
         """
         cmd = ["cargo", "build"]
+
+        # Add --config flag to use workspace-level config file
+        if self._build_base:
+            config_file = self._build_base / "ros2_cargo_config.toml"
+            cmd.extend(["--config", str(config_file)])
 
         # Handle None cargo_args
         if cargo_args is None:

@@ -9,12 +9,12 @@ this module generates ALL bindings once before any packages are built.
 Architecture:
 1. Discover all ROS package dependencies in the workspace
 2. Generate all bindings to build/ros2_bindings/
-3. Detect Cargo workspace(s) and write .cargo/config.toml to proper locations
-4. Individual packages then just run `cargo build`
+3. Write single Cargo config file in build/ros2_cargo_config.toml
+4. Individual packages run `cargo build --config build/ros2_cargo_config.toml`
 """
 
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict
 import xml.etree.ElementTree as ET
 
 from colcon_core.logging import colcon_logger
@@ -64,8 +64,7 @@ class WorkspaceBindingGenerator:
         This is the main entry point that:
         1. Discovers all ROS dependencies
         2. Generates bindings for all packages
-        3. Detects Cargo workspaces
-        4. Writes .cargo/config.toml files
+        3. Writes single Cargo config file in build/
         """
         logger.info("Starting workspace-level binding generation")
 
@@ -76,13 +75,8 @@ class WorkspaceBindingGenerator:
         # Step 2: Generate bindings for all discovered packages
         self._generate_bindings(ros_packages, verbose)
 
-        # Step 3: Detect Cargo workspaces in the colcon workspace
-        cargo_workspaces = self._detect_cargo_workspaces()
-        logger.info(f"Detected {len(cargo_workspaces)} Cargo workspace(s)")
-
-        # Step 4: Write .cargo/config.toml for each Cargo workspace
-        for cargo_ws in cargo_workspaces:
-            self._write_cargo_config(cargo_ws, ros_packages)
+        # Step 3: Write single Cargo config file in build/ directory
+        self._write_cargo_config_file(ros_packages)
 
         logger.info("Workspace-level binding generation complete")
 
@@ -286,101 +280,18 @@ class WorkspaceBindingGenerator:
         cargo_toml.write_text("\n".join(new_lines))
         logger.debug(f"Fixed up Cargo.toml for {pkg_name}")
 
-    def _detect_cargo_workspaces(self) -> List[Path]:
-        """Detect all Cargo workspaces in the colcon workspace.
+    def _write_cargo_config_file(self, ros_packages: Dict[str, Path]):
+        """Write single Cargo config file in build/ directory.
 
-        Returns:
-            List of paths to Cargo workspace roots (directories containing Cargo.toml with [workspace])
-        """
-        cargo_workspaces = []
-
-        # Search in common source directories
-        for src_dir in [self.workspace_root / "src", self.workspace_root / "ros"]:
-            if not src_dir.exists():
-                continue
-
-            # Walk the directory tree looking for Cargo.toml files
-            for cargo_toml in src_dir.rglob("Cargo.toml"):
-                # Read and check if it contains [workspace] section
-                try:
-                    content = cargo_toml.read_text()
-                    if "[workspace]" in content:
-                        cargo_ws_root = cargo_toml.parent
-                        if cargo_ws_root not in cargo_workspaces:
-                            cargo_workspaces.append(cargo_ws_root)
-                            logger.info(f"Found Cargo workspace: {cargo_ws_root}")
-                except Exception as e:
-                    logger.warning(f"Failed to read {cargo_toml}: {e}")
-
-        # If no Cargo workspaces found, each package is standalone
-        # In this case, we'll need to write config to each package directory
-        if not cargo_workspaces:
-            logger.info("No Cargo workspaces found, will use per-package configs")
-            cargo_workspaces = self._find_standalone_packages()
-
-        return cargo_workspaces
-
-    def _find_standalone_packages(self) -> List[Path]:
-        """Find standalone Cargo packages (those not in a workspace).
-
-        Returns:
-            List of paths to standalone package roots
-        """
-        standalone_packages = []
-
-        for src_dir in [self.workspace_root / "src", self.workspace_root / "ros"]:
-            if not src_dir.exists():
-                continue
-
-            for cargo_toml in src_dir.rglob("Cargo.toml"):
-                content = cargo_toml.read_text()
-                # If it's not a workspace and not a member of a workspace
-                if "[workspace]" not in content:
-                    pkg_root = cargo_toml.parent
-                    # Check if parent is a workspace member
-                    if not self._is_workspace_member(pkg_root):
-                        standalone_packages.append(pkg_root)
-
-        return standalone_packages
-
-    def _is_workspace_member(self, pkg_path: Path) -> bool:
-        """Check if a package is a member of a Cargo workspace.
+        This config file will be passed to cargo via --config flag.
 
         Args:
-            pkg_path: Path to the package directory
-
-        Returns:
-            True if the package is a workspace member, False otherwise
-        """
-        # Walk up the directory tree looking for a workspace
-        current = pkg_path.parent
-        while current != self.workspace_root and current != current.parent:
-            workspace_toml = current / "Cargo.toml"
-            if workspace_toml.exists():
-                content = workspace_toml.read_text()
-                if "[workspace]" in content:
-                    # Check if pkg_path is in the workspace members
-                    # For now, assume yes if workspace exists above
-                    return True
-            current = current.parent
-        return False
-
-    def _write_cargo_config(self, cargo_ws_root: Path, ros_packages: Dict[str, Path]):
-        """Write .cargo/config.toml for a Cargo workspace.
-
-        Args:
-            cargo_ws_root: Path to the Cargo workspace root
             ros_packages: Dict of all ROS packages (for building patch entries)
         """
-        config_dir = cargo_ws_root / ".cargo"
-        config_file = config_dir / "config.toml"
-
-        # Create .cargo directory
-        config_dir.mkdir(parents=True, exist_ok=True)
+        config_file = self.build_base / "ros2_cargo_config.toml"
 
         # Build [patch.crates-io] section
         patches = []
-        rosidl_runtime_rs_path = None
 
         for pkg_name in sorted(ros_packages.keys()):
             binding_dir = self.bindings_dir / pkg_name
@@ -399,27 +310,13 @@ class WorkspaceBindingGenerator:
                         f'{pkg_name} = {{ path = "{binding_dir.absolute()}" }}'
                     )
 
-                # Save the first rosidl_runtime_rs path we find
-                if rosidl_runtime_rs_path is None:
-                    runtime_rs = binding_dir / "rosidl_runtime_rs"
-                    if runtime_rs.exists() and (runtime_rs / "Cargo.toml").exists():
-                        rosidl_runtime_rs_path = runtime_rs.absolute()
-
-        # Add rosidl_runtime_rs patch (shared across all packages)
-        if rosidl_runtime_rs_path:
-            patches.append(
-                f'rosidl_runtime_rs = {{ path = "{rosidl_runtime_rs_path}" }}'
-            )
-
-        # Write config.toml
+        # Write config.toml (NOTE: No rosidl_runtime_rs patch - using 0.5.0 from crates.io)
         content = "[patch.crates-io]\n"
         content += "\n".join(patches)
-        content += "\n\n"
+        content += "\n"
 
         config_file.write_text(content)
-        logger.info(
-            f"Wrote .cargo/config.toml with {len(patches)} patches to {config_file}"
-        )
+        logger.info(f"Wrote Cargo config with {len(patches)} patches to {config_file}")
 
 
 def generate_workspace_bindings(

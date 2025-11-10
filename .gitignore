@@ -152,9 +152,7 @@ cython_debug/
 #.idea/
 
 # Rust
-/target/
-**/target/
-Cargo.lock
+target/
 **/*.rs.bk
 *.pdb
 

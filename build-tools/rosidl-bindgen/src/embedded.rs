@@ -1,20 +1,19 @@
-//! Embedded rosidl-runtime-rs and rclrs source code.
+//! Embedded rosidl-runtime and rclrs source code.
 //!
-//! This module embeds the entire rosidl-runtime-rs and rclrs directories at compile time
+//! This module embeds the entire rosidl-runtime and rclrs directories at compile time
 //! and provides functions to extract them to disk during binding generation.
 
 use eyre::{Result, WrapErr};
 use include_dir::{include_dir, Dir};
 use std::path::Path;
 
-/// Embedded rosidl-runtime-rs source directory
-static ROSIDL_RUNTIME_RS: Dir =
-    include_dir!("$CARGO_MANIFEST_DIR/../../user-libs/rosidl-runtime-rs");
+/// Embedded rosidl-runtime source directory
+static ROSIDL_RUNTIME_RS: Dir = include_dir!("$CARGO_MANIFEST_DIR/../../user-libs/rosidl-runtime");
 
 /// Embedded rclrs source directory
 static RCLRS: Dir = include_dir!("$CARGO_MANIFEST_DIR/../../user-libs/rclrs");
 
-/// Extract the embedded rosidl-runtime-rs source to the specified output directory
+/// Extract the embedded rosidl-runtime source to the specified output directory
 pub fn extract_embedded_runtime_rs(output_dir: &Path) -> Result<()> {
     let target = output_dir.join("rosidl_runtime_rs");
 
@@ -88,10 +87,7 @@ fn fix_cargo_toml_workspace_inheritance(crate_dir: &Path) -> Result<()> {
     // Replace workspace inheritance with explicit values
     // Also fix package name to use underscore (rosidl_runtime_rs) instead of dash
     let fixed_content = content
-        .replace(
-            "name = \"rosidl-runtime-rs\"",
-            "name = \"rosidl_runtime_rs\"",
-        )
+        .replace("name = \"rosidl-runtime\"", "name = \"rosidl_runtime_rs\"")
         .replace("version.workspace = true", "version = \"0.1.0\"")
         .replace("authors.workspace = true", "authors = []")
         .replace("edition.workspace = true", "edition = \"2021\"")
@@ -189,7 +185,7 @@ mod tests {
         // Verify that the embedded directory is not empty
         assert!(
             ROSIDL_RUNTIME_RS.files().count() > 0,
-            "rosidl-runtime-rs should have files"
+            "rosidl-runtime should have files"
         );
 
         // Verify key files exist

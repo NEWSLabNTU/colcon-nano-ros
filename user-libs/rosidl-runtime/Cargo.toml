@@ -1,5 +1,5 @@
 [package]
-name = "rosidl-runtime-rs"
+name = "rosidl-runtime"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true

@@ -6,6 +6,7 @@ members = [
     "rosidl-parser",
     "rosidl-codegen",
     "rosidl-runtime-rs",
+    "rclrs",
 ]
 exclude = [
     "colcon-cargo-ros2/test/rust-sample-package",
@@ -36,6 +37,7 @@ rosidl-bindgen = { path = "rosidl-bindgen" }
 rosidl-parser = { path = "rosidl-parser" }
 rosidl-codegen = { path = "rosidl-codegen" }
 rosidl-runtime-rs = { path = "rosidl-runtime-rs" }
+rclrs = { path = "rclrs" }
 
 [profile.dev-release]
 inherits = "release"

@@ -4,3 +4,6 @@
 [submodule "user-libs/rosidl_runtime_rs"]
 	path = user-libs/rosidl_runtime_rs
 	url = https://github.com/ros2-rust/rosidl_runtime_rs.git
+[submodule "testing_workspaces/ros2_rust_examples"]
+	path = testing_workspaces/ros2_rust_examples
+	url = https://github.com/ros2-rust/examples.git

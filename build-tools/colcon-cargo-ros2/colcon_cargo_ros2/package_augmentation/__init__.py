@@ -5,8 +5,6 @@ from colcon_core.plugin_system import satisfies_version
 from colcon_core.logging import colcon_logger
 from pathlib import Path
 
-from colcon_cargo_ros2.workspace_bindgen import WorkspaceBindingGenerator
-
 logger = colcon_logger.getChild(__name__)
 
 
@@ -25,7 +23,7 @@ class RustBindingAugmentation(PackageAugmentationExtensionPoint):
     def __init__(self):
         super().__init__()
         satisfies_version(
-            PackageAugmentationExtensionPoint.EXTENSION_POINT_VERSION, '^1.0'
+            PackageAugmentationExtensionPoint.EXTENSION_POINT_VERSION, "^1.0"
         )
         self._bindings_generated = False
 
@@ -46,11 +44,13 @@ class RustBindingAugmentation(PackageAugmentationExtensionPoint):
             pkg_path = Path(desc.path)
 
             # Check if package has interface definitions
-            has_interfaces = any([
-                (pkg_path / 'msg').exists(),
-                (pkg_path / 'srv').exists(),
-                (pkg_path / 'action').exists(),
-            ])
+            has_interfaces = any(
+                [
+                    (pkg_path / "msg").exists(),
+                    (pkg_path / "srv").exists(),
+                    (pkg_path / "action").exists(),
+                ]
+            )
 
             if has_interfaces:
                 interface_packages[desc.name] = pkg_path
@@ -60,7 +60,9 @@ class RustBindingAugmentation(PackageAugmentationExtensionPoint):
             logger.debug("No interface packages found in workspace")
             return
 
-        logger.info(f"Discovered {len(interface_packages)} interface packages via colcon")
+        logger.info(
+            f"Discovered {len(interface_packages)} interface packages via colcon"
+        )
 
         # Store interface packages in generator for use during build phase
         # The first build task will trigger actual binding generation
@@ -71,8 +73,8 @@ class RustBindingAugmentation(PackageAugmentationExtensionPoint):
         RustBindingAugmentation._interface_packages = interface_packages
         self._bindings_generated = True
 
-        # Continue with normal augmentation
-        super().augment_packages(descs, additional_argument_names=additional_argument_names)
+        # Note: We don't call super().augment_packages() because we're doing
+        # workspace-level operations, not per-package augmentation
 
 
 # Class variable to share discovered packages with build tasks

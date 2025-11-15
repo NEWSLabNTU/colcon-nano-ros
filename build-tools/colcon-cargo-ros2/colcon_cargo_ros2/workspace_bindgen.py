@@ -15,7 +15,6 @@ Architecture:
 
 from pathlib import Path
 from typing import Dict
-import xml.etree.ElementTree as ET
 
 from colcon_core.logging import colcon_logger
 
@@ -94,17 +93,25 @@ class WorkspaceBindingGenerator:
                 get_package_share_directory,
                 get_packages_with_prefixes,
             )
+        except ImportError as e:
+            logger.error(
+                f"\n\nament_index_python not found: {e}"
+                "\n\nPlease install ROS 2 dependencies:"
+                "\n  $ pip install ament_index_python\n"
+            )
+            raise
 
-            all_packages = get_packages_with_prefixes()
-            for pkg_name, pkg_prefix in all_packages.items():
-                try:
-                    pkg_share = Path(get_package_share_directory(pkg_name))
-                    if pkg_share.exists() and (pkg_share / "package.xml").exists():
-                        packages[pkg_name] = pkg_share
-                except Exception:
-                    continue
-        except ImportError:
-            logger.warning("ament_index_python not available")
+        all_packages = get_packages_with_prefixes()
+        for pkg_name, pkg_prefix in all_packages.items():
+            try:
+                pkg_share = Path(get_package_share_directory(pkg_name))
+                if pkg_share.exists() and (pkg_share / "package.xml").exists():
+                    packages[pkg_name] = pkg_share
+            except (LookupError, OSError) as e:
+                # LookupError: Covers PackageNotFoundError and KeyError
+                # OSError: Covers file system access issues
+                logger.debug(f"Skipping package {pkg_name}: {e}")
+                continue
 
         # 2. Check workspace install directory for packages not yet in ament_index
         if self.install_base.exists():
@@ -117,17 +124,19 @@ class WorkspaceBindingGenerator:
 
         # 3. Use packages discovered by colcon's PackageAugmentationExtensionPoint
         # This respects colcon's package discovery (--base-paths, --packages-select, etc.)
-        try:
-            from colcon_cargo_ros2.package_augmentation import RustBindingAugmentation
+        from colcon_cargo_ros2.package_augmentation import RustBindingAugmentation
 
-            interface_packages = getattr(RustBindingAugmentation, '_interface_packages', {})
-            for pkg_name, pkg_path in interface_packages.items():
-                if pkg_name not in packages:
-                    # Use source directory directly for workspace packages
-                    packages[pkg_name] = pkg_path
-                    logger.debug(f"Using colcon-discovered package: {pkg_name} at {pkg_path}")
-        except ImportError:
-            logger.debug("Package augmentation not available, falling back to ament_index only")
+        interface_packages = getattr(RustBindingAugmentation, "_interface_packages", {})
+        logger.info(
+            f"Colcon discovered {len(interface_packages)} interface packages: {list(interface_packages.keys())}"
+        )
+        for pkg_name, pkg_path in interface_packages.items():
+            if pkg_name not in packages:
+                # Use source directory directly for workspace packages
+                packages[pkg_name] = pkg_path
+                logger.info(
+                    f"Using colcon-discovered package: {pkg_name} at {pkg_path}"
+                )
 
         return packages
 

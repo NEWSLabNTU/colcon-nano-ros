@@ -447,9 +447,11 @@ serde = {{ version = "1.0", features = ["derive"], optional = true }}
     // Add features section
     cargo_toml.push_str("\n[features]\ndefault = []\n");
     if needs_big_array {
-        cargo_toml.push_str("serde = [\"dep:serde\", \"dep:serde-big-array\"]\n");
+        cargo_toml.push_str(
+            "serde = [\"dep:serde\", \"dep:serde-big-array\", \"rosidl_runtime_rs/serde\"]\n",
+        );
     } else {
-        cargo_toml.push_str("serde = [\"dep:serde\"]\n");
+        cargo_toml.push_str("serde = [\"dep:serde\", \"rosidl_runtime_rs/serde\"]\n");
     }
 
     cargo_toml.push_str(

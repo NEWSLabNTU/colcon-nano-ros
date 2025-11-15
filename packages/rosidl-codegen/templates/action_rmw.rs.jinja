@@ -34,6 +34,7 @@ extern "C" {
 
 // Goal message type
 #[repr(C)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct {{ action_name }}Goal {
     {% for field in goal_fields %}
@@ -110,6 +111,7 @@ extern "C" {
 
 // Result message type
 #[repr(C)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct {{ action_name }}Result {
     {% for field in result_fields %}
@@ -186,6 +188,7 @@ extern "C" {
 
 // Feedback message type
 #[repr(C)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct {{ action_name }}Feedback {
     {% for field in feedback_fields %}
@@ -262,6 +265,7 @@ extern "C" {
 
 // FeedbackMessage type (wraps feedback with goal UUID)
 #[repr(C)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct {{ action_name }}FeedbackMessage {
     pub goal_id: unique_identifier_msgs::msg::rmw::UUID,
@@ -337,6 +341,7 @@ extern "C" {
 
 // SendGoal_Request type
 #[repr(C)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct {{ action_name }}_SendGoal_Request {
     pub goal_id: unique_identifier_msgs::msg::rmw::UUID,
@@ -412,6 +417,7 @@ extern "C" {
 
 // SendGoal_Response type
 #[repr(C)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct {{ action_name }}_SendGoal_Response {
     pub accepted: bool,
@@ -506,6 +512,7 @@ extern "C" {
 
 // GetResult_Request type
 #[repr(C)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct {{ action_name }}_GetResult_Request {
     pub goal_id: unique_identifier_msgs::msg::rmw::UUID,
@@ -580,6 +587,7 @@ extern "C" {
 
 // GetResult_Response type
 #[repr(C)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct {{ action_name }}_GetResult_Response {
     pub status: i8,

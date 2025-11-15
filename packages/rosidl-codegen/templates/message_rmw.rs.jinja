@@ -21,9 +21,10 @@ extern "C" {
     fn {{ package_name }}__msg__{{ message_name }}__Sequence__copy(in_seq: &crate::rosidl_runtime_rs::Sequence<{{ message_name }}>, out_seq: *mut crate::rosidl_runtime_rs::Sequence<{{ message_name }}>) -> bool;
 }
 
-// RMW types are C-compatible FFI types and don't need serialization
-// Use the idiomatic layer if you need Serialize/Deserialize
+// RMW types are C-compatible FFI types
+// Serde support is available via the "serde" feature flag
 #[repr(C)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct {{ message_name }} {
     {% for field in fields %}

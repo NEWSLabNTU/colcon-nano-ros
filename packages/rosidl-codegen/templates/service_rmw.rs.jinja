@@ -29,6 +29,7 @@ extern "C" {
 
 // Request message type
 #[repr(C)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct {{ service_name }}Request {
     {% for field in request_fields %}
@@ -105,6 +106,7 @@ extern "C" {
 
 // Response message type
 #[repr(C)]
+#[cfg_attr(feature = "serde", derive(Deserialize, Serialize))]
 #[derive(Debug, Clone, PartialEq)]
 pub struct {{ service_name }}Response {
     {% for field in response_fields %}

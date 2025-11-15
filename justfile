@@ -4,72 +4,47 @@
 default:
     @just --list
 
-# === BUILD-TOOLS WORKSPACE ===
+# === PACKAGES WORKSPACE ===
 
-# Build build-tools workspace
-build-build-tools:
+# Build packages workspace
+build-packages:
     #!/usr/bin/env bash
     set -e
-    cd build-tools
+    cd packages
     cargo build \
         --profile dev-release \
         --all-targets
 
-# Test build-tools workspace
-test-build-tools:
+# Test packages workspace
+test-packages:
     #!/usr/bin/env bash
     set -e
-    cd build-tools
+    cd packages
     cargo nextest run \
         --cargo-profile dev-release \
         --no-fail-fast
 
-# Format build-tools workspace
-format-build-tools:
+# Format packages workspace
+format-packages:
     #!/usr/bin/env bash
     set -e
-    cd build-tools
+    cd packages
     cargo +nightly fmt
 
-# Check/lint build-tools workspace
-check-build-tools:
+# Check/lint packages workspace
+check-packages:
     #!/usr/bin/env bash
     set -e
-    cd build-tools
+    cd packages
     cargo clippy --workspace --all-targets -- -D warnings
 
-# Clean build-tools workspace
-clean-build-tools:
+# Clean packages workspace
+clean-packages:
     #!/usr/bin/env bash
     set -e
-    cd build-tools
+    cd packages
     cargo clean
     rm -rf colcon-cargo-ros2/dist/ colcon-cargo-ros2/build/ colcon-cargo-ros2/*.egg-info
-
-# === USER-LIBS WORKSPACE (requires ROS environment) ===
-
-# Build user-libs workspace
-build-user-libs:
-    #!/usr/bin/env bash
-    for crate in user-libs/*; do
-        (cd $crate && \
-        cargo build --all-targets)
-    done
-
-# Test user-libs workspace
-test-user-libs:
-    #!/usr/bin/env bash
-    for crate in user-libs/*; do
-        (cd $crate && \
-        cargo nextest run --no-fail-fast)
-    done
-
-# Clean user-libs workspace
-clean-user-libs:
-    #!/usr/bin/env bash
-    set -e
-    cd user-libs
-    cargo clean
 
 # === PYTHON COMMANDS ===
 
@@ -77,50 +52,53 @@ clean-user-libs:
 build-python:
     #!/usr/bin/env bash
     set -e
-    cd build-tools/colcon-cargo-ros2
+    cd packages/colcon-cargo-ros2
     maturin build --profile dev-release
 
 # Install Python package in development mode
 install-python:
-    pip3 install -e build-tools/colcon-cargo-ros2/ --break-system-packages
+    pip3 install -e packages/colcon-cargo-ros2/ --break-system-packages
 
 # Test Python code
 test-python:
-    pytest build-tools/colcon-cargo-ros2/test/
+    pytest packages/colcon-cargo-ros2/test/
 
 # Format Python code
 format-python:
     #!/usr/bin/env bash
     set -e
-    cd build-tools/colcon-cargo-ros2
+    cd packages/colcon-cargo-ros2
     ruff format colcon_cargo_ros2/ test/
 
 # Lint Python code
 check-python:
     #!/usr/bin/env bash
     set -e
-    cd build-tools/colcon-cargo-ros2
+    cd packages/colcon-cargo-ros2
     ruff check colcon_cargo_ros2/ test/
 
 # === COMBINED COMMANDS ===
 
-# Build both workspaces (note: user-libs requires ROS environment)
-build: build-build-tools build-user-libs
+# Build packages
+build: build-packages build-python
 
-# Test both workspaces + Python
-test: test-build-tools test-user-libs test-python
+# Install packages
+install: install-python
 
-# Clean both workspaces
-clean: clean-build-tools clean-user-libs
+# Test packages + Python
+test: test-packages test-python
 
-# Format all code (both workspaces + Python)
+# Clean packages
+clean: clean-packages
+
+# Format all code (packages + Python)
 format:
-    just format-build-tools
+    just format-packages
     just format-python
 
-# Lint and check all code (both workspaces + Python)
+# Lint and check all code (packages + Python)
 check:
-    just check-build-tools
+    just check-packages
     just check-python
 
 # === QUALITY COMMANDS ===

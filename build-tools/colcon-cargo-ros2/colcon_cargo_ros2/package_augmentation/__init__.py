@@ -21,6 +21,7 @@ class RustBindingAugmentation(PackageAugmentationExtensionPoint):
     PRIORITY = 90  # Run after most other augmentations
 
     def __init__(self):
+        """Initialize the RustBindingAugmentation extension."""
         super().__init__()
         satisfies_version(
             PackageAugmentationExtensionPoint.EXTENSION_POINT_VERSION, "^1.0"

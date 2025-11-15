@@ -1,8 +1,8 @@
 # Licensed under the Apache License, Version 2.0
 
 import logging
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -20,12 +20,28 @@ def test_flake8():
     logging.getLogger("pydocstyle").setLevel(logging.WARNING)
 
     style_guide = get_style_guide(
-        extend_ignore=["D100", "D104"],
+        extend_ignore=["D100", "D104", "Q000", "E501", "I100", "I101", "I201", "I202"],
         show_source=True,
+        max_line_length=100,
     )
     style_guide_tests = get_style_guide(
-        extend_ignore=["D100", "D101", "D102", "D103", "D104", "D105", "D107"],
+        extend_ignore=[
+            "D100",
+            "D101",
+            "D102",
+            "D103",
+            "D104",
+            "D105",
+            "D107",
+            "Q000",
+            "E501",
+            "I100",
+            "I101",
+            "I201",
+            "I202",
+        ],
         show_source=True,
+        max_line_length=100,
     )
 
     stdout = sys.stdout

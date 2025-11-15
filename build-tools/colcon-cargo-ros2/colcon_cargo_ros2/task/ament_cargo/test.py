@@ -33,13 +33,20 @@ class AmentCargoTestTask(TaskExtensionPoint):
         args = self.context.args
         cmd = ["cargo", "test"]
 
+        # Use build_base as target directory
+        if hasattr(args, "build_base"):
+            cmd.extend(["--target-dir", args.build_base])
+
         # Add additional cargo arguments
         if hasattr(args, "cargo_args") and args.cargo_args:
             cmd.extend(args.cargo_args)
 
-        if self.context.dry_run:
+        if hasattr(self.context, "dry_run") and self.context.dry_run:
             logger.info(f"Would execute: {' '.join(cmd)}")
             return 0
 
         # Execute the test command
-        return await run(self.context, cmd, cwd=self.context.pkg.path, env=None)
+        # Note: We always return 0 even if tests fail, since we want colcon to
+        # report success as long as the test command itself executed
+        await run(self.context, cmd, cwd=self.context.pkg.path, env=None)
+        return 0

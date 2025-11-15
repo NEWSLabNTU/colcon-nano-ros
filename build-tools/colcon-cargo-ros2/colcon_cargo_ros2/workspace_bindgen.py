@@ -175,10 +175,13 @@ class WorkspaceBindingGenerator:
             # Pass workspace-level bindings_dir, not package-specific dir
             # (generate_package will create the package subdirectory)
             logger.info(f"Generating bindings for {pkg_name}")
-            self._run_bindgen(pkg_name, pkg_share, self.bindings_dir, verbose)
-
-            # Post-process Cargo.toml to remove path dependencies
-            self._fixup_cargo_toml(pkg_name, binding_dir)
+            try:
+                self._run_bindgen(pkg_name, pkg_share, self.bindings_dir, verbose)
+                # Post-process Cargo.toml to remove path dependencies
+                self._fixup_cargo_toml(pkg_name, binding_dir)
+            except RuntimeError as e:
+                # Log warning for packages that can't be generated (e.g., unsupported IDL features)
+                logger.warning(f"Skipping {pkg_name}: {e}")
 
     def _run_bindgen(
         self, pkg_name: str, pkg_share: Path, output_dir: Path, verbose: bool

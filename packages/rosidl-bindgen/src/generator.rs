@@ -198,22 +198,9 @@ pub fn generate_package(package: &Package, output_dir: &Path) -> Result<Generate
         action_count += 1;
     }
 
-    // Generate IDL messages
-    for idl_msg_name in &package.interfaces.idl_messages {
-        let idl_path = package.get_idl_message_path(idl_msg_name);
-        let content = std::fs::read_to_string(&idl_path)
-            .wrap_err_with(|| format!("Failed to read IDL file: {}", idl_path.display()))?;
-
-        let parsed_idl = rosidl_parser::parse_idl_file(&content)
-            .map_err(|e| eyre!("Failed to parse IDL file {}: {}", idl_msg_name, e))?;
-
-        let generated =
-            rosidl_codegen::generate_idl_file(&package.name, &parsed_idl, &known_packages)
-                .map_err(|e| eyre!("Failed to generate IDL code for {}: {}", idl_msg_name, e))?;
-
-        write_generated_idl(&generated, &package_output, idl_msg_name)?;
-        message_count += 1; // Count IDL messages as messages
-    }
+    // Note: No longer processing .idl files
+    // ROS 2 auto-generates .idl files from .msg files, but we only need .msg files
+    // Our parser supports .msg/.srv/.action format, not the OMG IDL format
 
     // Remove self-dependency (package shouldn't depend on itself)
     all_dependencies.remove(&package.name);
@@ -344,8 +331,8 @@ fn generate_lib_rs(
     let src_dir = output_dir.join("src");
     std::fs::create_dir_all(&src_dir)?;
 
-    // Collect message info (both .msg and .idl)
-    let mut messages: Vec<InterfaceInfo> = package
+    // Collect message info
+    let messages: Vec<InterfaceInfo> = package
         .interfaces
         .messages
         .iter()
@@ -354,18 +341,6 @@ fn generate_lib_rs(
             module_name: to_snake_case(name),
         })
         .collect();
-
-    // Add IDL messages
-    messages.extend(
-        package
-            .interfaces
-            .idl_messages
-            .iter()
-            .map(|name| InterfaceInfo {
-                type_name: name.clone(),
-                module_name: to_snake_case(name),
-            }),
-    );
 
     // Collect service info
     let services: Vec<InterfaceInfo> = package

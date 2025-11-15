@@ -276,35 +276,33 @@ pub fn rust_type_for_field(
             let is_self_ref = package.as_deref() == current_package;
 
             if let Some(pkg) = package {
-                let module_name = to_snake_case(name);
                 if is_self_ref {
                     // Self-reference: use crate:: instead of pkg::
                     if rmw_layer {
-                        // RMW layer uses FFI hierarchy: crate::ffi::msg::module::Type
-                        format!("crate::ffi::msg::{}::{}", module_name, name)
+                        // RMW layer uses rmw submodule: crate::msg::rmw::Type
+                        format!("crate::msg::rmw::{}", name)
                     } else {
-                        // Idiomatic layer uses module hierarchy: crate::msg::module::Type
-                        format!("crate::msg::{}::{}", module_name, name)
+                        // Idiomatic layer: types are re-exported from msg module
+                        format!("crate::msg::{}", name)
                     }
                 } else {
                     // Cross-package reference
                     if rmw_layer {
-                        // RMW layer uses FFI hierarchy: pkg::ffi::msg::module::Type
-                        format!("{}::ffi::msg::{}::{}", pkg, module_name, name)
+                        // RMW layer uses rmw submodule: pkg::msg::rmw::Type
+                        format!("{}::msg::rmw::{}", pkg, name)
                     } else {
-                        // Idiomatic layer uses module hierarchy: pkg::msg::module::Type
-                        format!("{}::msg::{}::{}", pkg, module_name, name)
+                        // Idiomatic layer: types are re-exported from msg module
+                        format!("{}::msg::{}", pkg, name)
                     }
                 }
             } else {
                 // Local same-package type reference (no package specified)
-                let module_name = to_snake_case(name);
                 if rmw_layer {
-                    // RMW layer uses FFI hierarchy
-                    format!("crate::ffi::msg::{}::{}", module_name, name)
+                    // RMW layer uses rmw submodule
+                    format!("crate::msg::rmw::{}", name)
                 } else {
-                    // Idiomatic layer uses module hierarchy
-                    format!("crate::msg::{}::{}", module_name, name)
+                    // Idiomatic layer: types are re-exported from msg module
+                    format!("crate::msg::{}", name)
                 }
             }
         }
@@ -449,11 +447,11 @@ pub fn rust_type_for_idl(
 
         IdlType::UserDefined(name) => {
             // Local type reference (same package)
-            let module_name = to_snake_case(name);
             if rmw_layer {
-                format!("crate::ffi::msg::{}::{}", module_name, name)
+                format!("crate::msg::rmw::{}", name)
             } else {
-                format!("crate::msg::{}::{}", module_name, name)
+                // Idiomatic layer: types are re-exported from msg module
+                format!("crate::msg::{}", name)
             }
         }
 
@@ -463,29 +461,30 @@ pub fn rust_type_for_idl(
             if path.len() >= 3 {
                 let package = &path[0];
                 let typename = &path[path.len() - 1];
-                let module_name = to_snake_case(typename);
 
                 // Check if this is a self-reference
                 let is_self_ref = package.as_str() == current_package.unwrap_or("");
 
                 if is_self_ref {
                     if rmw_layer {
-                        format!("crate::ffi::msg::{}::{}", module_name, typename)
+                        format!("crate::msg::rmw::{}", typename)
                     } else {
-                        format!("crate::msg::{}::{}", module_name, typename)
+                        // Idiomatic layer: types are re-exported from msg module
+                        format!("crate::msg::{}", typename)
                     }
                 } else if rmw_layer {
-                    format!("{}::ffi::msg::{}::{}", package, module_name, typename)
+                    format!("{}::msg::rmw::{}", package, typename)
                 } else {
-                    format!("{}::msg::{}::{}", package, module_name, typename)
+                    // Idiomatic layer: types are re-exported from msg module
+                    format!("{}::msg::{}", package, typename)
                 }
             } else if path.len() == 1 {
                 // Simple name - treat as local type
-                let module_name = to_snake_case(&path[0]);
                 if rmw_layer {
-                    format!("crate::ffi::msg::{}::{}", module_name, path[0])
+                    format!("crate::msg::rmw::{}", path[0])
                 } else {
-                    format!("crate::msg::{}::{}", module_name, path[0])
+                    // Idiomatic layer: types are re-exported from msg module
+                    format!("crate::msg::{}", path[0])
                 }
             } else {
                 // Fallback

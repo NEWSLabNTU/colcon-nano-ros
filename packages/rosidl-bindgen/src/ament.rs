@@ -52,21 +52,22 @@ impl Package {
         let msg_dir = share_dir.join("msg");
         if msg_dir.exists() {
             interfaces.messages = discover_interface_files(&msg_dir, "msg")?;
-            interfaces.idl_messages = discover_interface_files(&msg_dir, "idl")?;
+            // Note: Ignoring .idl files - ROS 2 auto-generates these from .msg files
+            // Our parser only supports .msg/.srv/.action format, not OMG IDL format
         }
 
         // Discover .srv files
         let srv_dir = share_dir.join("srv");
         if srv_dir.exists() {
             interfaces.services = discover_interface_files(&srv_dir, "srv")?;
-            interfaces.idl_services = discover_interface_files(&srv_dir, "idl")?;
+            // Note: Ignoring .idl files
         }
 
         // Discover .action files
         let action_dir = share_dir.join("action");
         if action_dir.exists() {
             interfaces.actions = discover_interface_files(&action_dir, "action")?;
-            interfaces.idl_actions = discover_interface_files(&action_dir, "idl")?;
+            // Note: Ignoring .idl files
         }
 
         Ok(Package {

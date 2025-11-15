@@ -353,8 +353,9 @@ impl AmentInstaller {
         }
 
         // Also check for default binary (package name)
+        // Note: Cargo uses the package name as-is for binary names (with dashes)
         if binaries.is_empty() {
-            binaries.push(self.package_name.replace('-', "_"));
+            binaries.push(self.package_name.clone());
         }
 
         binaries

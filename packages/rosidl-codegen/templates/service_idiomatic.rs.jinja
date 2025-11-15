@@ -10,6 +10,7 @@ pub mod request {
     #[cfg(feature = "serde")]
     use super::{Deserialize, Serialize};
 
+    #[allow(non_camel_case_types)]
     #[derive(Debug, Clone, PartialEq)]
     #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     pub struct {{ service_name }}_Request {
@@ -133,6 +134,7 @@ pub mod response {
     #[cfg(feature = "serde")]
     use super::{Deserialize, Serialize};
 
+    #[allow(non_camel_case_types)]
     #[derive(Debug, Clone, PartialEq)]
     #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
     pub struct {{ service_name }}_Response {

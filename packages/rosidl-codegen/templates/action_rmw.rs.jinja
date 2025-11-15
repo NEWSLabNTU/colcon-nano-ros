@@ -477,6 +477,7 @@ extern "C" {
 }
 
 // SendGoal service struct
+#[allow(non_camel_case_types)]
 pub struct {{ action_name }}_SendGoal;
 
 impl rosidl_runtime_rs::Service for {{ action_name }}_SendGoal {
@@ -644,6 +645,7 @@ extern "C" {
 }
 
 // GetResult service struct
+#[allow(non_camel_case_types)]
 pub struct {{ action_name }}_GetResult;
 
 impl rosidl_runtime_rs::Service for {{ action_name }}_GetResult {

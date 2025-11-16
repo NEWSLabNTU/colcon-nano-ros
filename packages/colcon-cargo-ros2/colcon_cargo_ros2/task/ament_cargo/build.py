@@ -3,6 +3,8 @@
 from pathlib import Path
 import os
 
+from colcon_core.environment import create_environment_hooks
+from colcon_core.environment import create_environment_scripts
 from colcon_core.logging import colcon_logger
 from colcon_core.plugin_system import satisfies_version
 from colcon_core.shell import create_environment_hook
@@ -54,8 +56,8 @@ class AmentCargoBuildTask(TaskExtensionPoint):
         if rc:
             return rc
 
-        # Step 2: Create environment hooks
-        await self._create_environment_hooks(additional_hooks)
+        # Step 2: Create environment hooks and scripts
+        await self._create_environment_scripts(additional_hooks)
 
         # Step 3: Build this package with cargo
         args = self.context.args
@@ -115,18 +117,36 @@ class AmentCargoBuildTask(TaskExtensionPoint):
 
         return 0
 
-    async def _create_environment_hooks(self, additional_hooks):
-        """Create environment hooks for ROS 2 integration."""
+    async def _create_environment_scripts(self, additional_hooks):
+        """Create environment hooks and scripts for ROS 2 integration.
+
+        This creates:
+        1. Individual hook scripts (e.g., ament_prefix_path.sh)
+        2. Package scripts that source all hooks (package.sh, package.bash, etc.)
+        3. Ensures ROS 2 compliance so CMake packages can find our packages
+        """
         args = self.context.args
+        pkg = self.context.pkg
+
+        # Create additional hooks (e.g., ament_prefix_path)
         additional_hooks.extend(
             create_environment_hook(
                 "ament_prefix_path",
                 Path(args.install_base),
-                self.context.pkg.name,
+                pkg.name,
                 "AMENT_PREFIX_PATH",
                 "",
                 mode="prepend",
             )
+        )
+
+        # Create default environment hooks (PATH, PYTHONPATH, etc.) from environment extensions
+        default_hooks = create_environment_hooks(args.install_base, pkg.name)
+
+        # Create package scripts (package.sh, package.bash, etc.) that source all hooks
+        # This is what makes our Rust packages compatible with CMake packages
+        create_environment_scripts(
+            pkg, args, default_hooks=default_hooks, additional_hooks=additional_hooks
         )
 
     def _build_cmd(self, cargo_args):

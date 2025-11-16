@@ -9,7 +9,7 @@ use crate::ament::Package;
 use askama::Template;
 use eyre::{Result, WrapErr};
 use rosidl_codegen::{
-    generate_action_package, generate_message_package, generate_service_package,
+    generate_action_package, generate_idl_file, generate_message_package, generate_service_package,
     utils::{extract_dependencies, needs_big_array, to_snake_case},
     GeneratedPackage,
 };
@@ -21,6 +21,16 @@ use std::path::{Path, PathBuf};
 struct InterfaceInfo {
     type_name: String,
     module_name: String,
+}
+
+/// Generated IDL artifacts (messages, services, actions, constants, enums)
+#[derive(Debug, Default)]
+struct GeneratedIdlArtifacts {
+    messages: Vec<String>,
+    services: Vec<String>,
+    actions: Vec<String>,
+    constant_modules: Vec<String>,
+    enums: Vec<String>,
 }
 
 /// Template for generating lib.rs
@@ -39,6 +49,9 @@ struct LibRsTemplate {
 struct MsgRsTemplate {
     package_name: String,
     messages: Vec<InterfaceInfo>,
+    idl_messages: Vec<InterfaceInfo>,
+    constant_modules: Vec<InterfaceInfo>,
+    enums: Vec<InterfaceInfo>,
 }
 
 /// Template for generating srv.rs
@@ -102,6 +115,13 @@ pub fn generate_package(package: &Package, output_dir: &Path) -> Result<Generate
     let mut action_count = 0;
     let mut all_dependencies = HashSet::new();
     let mut package_needs_big_array = false;
+
+    // Track successfully generated IDL files
+    let mut generated_idl_messages = Vec::new();
+    let mut generated_idl_services = Vec::new();
+    let mut generated_idl_actions = Vec::new();
+    let mut generated_idl_constant_modules = Vec::new();
+    let mut generated_idl_enums = Vec::new();
 
     // For dependency tracking (cross-package references)
     let known_packages = HashSet::new(); // TODO: populate from ament index
@@ -198,15 +218,150 @@ pub fn generate_package(package: &Package, output_dir: &Path) -> Result<Generate
         action_count += 1;
     }
 
-    // Note: No longer processing .idl files
-    // ROS 2 auto-generates .idl files from .msg files, but we only need .msg files
-    // Our parser supports .msg/.srv/.action format, not the OMG IDL format
+    // Generate IDL files (OMG IDL 4.2 format with advanced features)
+    // Only process manually-written IDL files, not auto-generated ones
+    // IDL files in msg/ directory (messages)
+    for idl_name in &package.interfaces.idl_messages {
+        let idl_path = package.get_idl_message_path(idl_name);
+        let content = std::fs::read_to_string(&idl_path)
+            .wrap_err_with(|| format!("Failed to read IDL file: {}", idl_path.display()))?;
+
+        // Skip auto-generated IDL files (they're generated from .msg files)
+        // Auto-generated files start with "// generated from rosidl_adapter"
+        if content
+            .trim_start()
+            .starts_with("// generated from rosidl_adapter")
+        {
+            continue;
+        }
+
+        // Try to parse the IDL file - skip if parsing fails (might use unsupported IDL features)
+        let parsed_idl = match rosidl_parser::idl::parse_idl_file(&content) {
+            Ok(parsed) => parsed,
+            Err(e) => {
+                eprintln!(
+                    "Warning: Skipping IDL file {} (parsing failed): {:?}",
+                    idl_name, e
+                );
+                continue;
+            }
+        };
+
+        // For now, we only extract dependencies from the package name
+        // TODO: Extract dependencies from IDL struct types
+        let idl_deps = HashSet::new();
+
+        let generated = generate_idl_file(&package.name, &parsed_idl, &idl_deps)
+            .map_err(|e| eyre::eyre!("Failed to generate IDL code for {}: {}", idl_name, e))?;
+
+        // Extract dependencies from generated structs
+        all_dependencies.extend(idl_deps);
+
+        write_generated_idl(&generated, &package_output, idl_name)?;
+        message_count += generated.structs.len();
+
+        // Track successfully generated IDL artifacts
+        for (struct_name, _) in &generated.structs {
+            generated_idl_messages.push(struct_name.clone());
+        }
+        for (const_mod_name, _) in &generated.constant_modules {
+            generated_idl_constant_modules.push(const_mod_name.clone());
+        }
+        for (enum_name, _) in &generated.enums {
+            generated_idl_enums.push(enum_name.clone());
+        }
+    }
+
+    // IDL files in srv/ directory (services)
+    for idl_name in &package.interfaces.idl_services {
+        let idl_path = package.get_idl_service_path(idl_name);
+        let content = std::fs::read_to_string(&idl_path)
+            .wrap_err_with(|| format!("Failed to read IDL file: {}", idl_path.display()))?;
+
+        // Skip auto-generated IDL files
+        if content
+            .trim_start()
+            .starts_with("// generated from rosidl_adapter")
+        {
+            continue;
+        }
+
+        // Try to parse the IDL file - skip if parsing fails
+        let parsed_idl = match rosidl_parser::idl::parse_idl_file(&content) {
+            Ok(parsed) => parsed,
+            Err(e) => {
+                eprintln!(
+                    "Warning: Skipping IDL file {} (parsing failed): {:?}",
+                    idl_name, e
+                );
+                continue;
+            }
+        };
+
+        let idl_deps = HashSet::new();
+        let generated = generate_idl_file(&package.name, &parsed_idl, &idl_deps)
+            .map_err(|e| eyre::eyre!("Failed to generate IDL code for {}: {}", idl_name, e))?;
+
+        all_dependencies.extend(idl_deps);
+
+        write_generated_idl(&generated, &package_output, idl_name)?;
+        service_count += generated.structs.len();
+
+        // Track successfully generated IDL service
+        generated_idl_services.push(idl_name.clone());
+    }
+
+    // IDL files in action/ directory (actions)
+    for idl_name in &package.interfaces.idl_actions {
+        let idl_path = package.get_idl_action_path(idl_name);
+        let content = std::fs::read_to_string(&idl_path)
+            .wrap_err_with(|| format!("Failed to read IDL file: {}", idl_path.display()))?;
+
+        // Skip auto-generated IDL files
+        if content
+            .trim_start()
+            .starts_with("// generated from rosidl_adapter")
+        {
+            continue;
+        }
+
+        // Try to parse the IDL file - skip if parsing fails
+        let parsed_idl = match rosidl_parser::idl::parse_idl_file(&content) {
+            Ok(parsed) => parsed,
+            Err(e) => {
+                eprintln!(
+                    "Warning: Skipping IDL file {} (parsing failed): {:?}",
+                    idl_name, e
+                );
+                continue;
+            }
+        };
+
+        let idl_deps = HashSet::new();
+        let generated = generate_idl_file(&package.name, &parsed_idl, &idl_deps)
+            .map_err(|e| eyre::eyre!("Failed to generate IDL code for {}: {}", idl_name, e))?;
+
+        all_dependencies.extend(idl_deps);
+
+        write_generated_idl(&generated, &package_output, idl_name)?;
+        action_count += generated.structs.len();
+
+        // Track successfully generated IDL action
+        generated_idl_actions.push(idl_name.clone());
+    }
 
     // Remove self-dependency (package shouldn't depend on itself)
     all_dependencies.remove(&package.name);
 
     // Generate lib.rs that re-exports all generated code
-    generate_lib_rs(&package_output, package, &all_dependencies)?;
+    let idl_artifacts = GeneratedIdlArtifacts {
+        messages: generated_idl_messages,
+        services: generated_idl_services,
+        actions: generated_idl_actions,
+        constant_modules: generated_idl_constant_modules,
+        enums: generated_idl_enums,
+    };
+    generate_lib_rs(&package_output, package, &all_dependencies, &idl_artifacts)?;
 
     // Generate Cargo.toml for the package
     generate_cargo_toml(
@@ -291,16 +446,49 @@ fn write_generated_action(
     Ok(())
 }
 
+/// Write generated IDL code to files
+fn write_generated_idl(
+    generated: &rosidl_codegen::GeneratedIdlCode,
+    output_dir: &Path,
+    _idl_file_name: &str,
+) -> Result<()> {
+    // Create src directory
+    let src_dir = output_dir.join("src");
+    std::fs::create_dir_all(&src_dir)?;
+
+    // Write each struct (message) as an idiomatic-only file
+    // IDL structs are idiomatic Rust code (no RMW layer needed)
+    for (struct_name, struct_code) in &generated.structs {
+        let idiomatic_file = src_dir.join(format!("{}_idiomatic.rs", to_snake_case(struct_name)));
+        std::fs::write(&idiomatic_file, struct_code)?;
+    }
+
+    // Write each constant module
+    for (module_name, module_code) in &generated.constant_modules {
+        let module_file = src_dir.join(format!("{}_constants.rs", to_snake_case(module_name)));
+        std::fs::write(&module_file, module_code)?;
+    }
+
+    // Write each enum
+    for (enum_name, enum_code) in &generated.enums {
+        let enum_file = src_dir.join(format!("{}_enum.rs", to_snake_case(enum_name)));
+        std::fs::write(&enum_file, enum_code)?;
+    }
+
+    Ok(())
+}
+
 /// Generate lib.rs that re-exports all generated modules
 fn generate_lib_rs(
     output_dir: &Path,
     package: &Package,
     _dependencies: &HashSet<String>,
+    idl_artifacts: &GeneratedIdlArtifacts,
 ) -> Result<()> {
     let src_dir = output_dir.join("src");
     std::fs::create_dir_all(&src_dir)?;
 
-    // Collect message info
+    // Collect message info from .msg files only
     let messages: Vec<InterfaceInfo> = package
         .interfaces
         .messages
@@ -311,8 +499,8 @@ fn generate_lib_rs(
         })
         .collect();
 
-    // Collect service info
-    let services: Vec<InterfaceInfo> = package
+    // Collect service info (both .srv and .idl services)
+    let mut services: Vec<InterfaceInfo> = package
         .interfaces
         .services
         .iter()
@@ -322,10 +510,52 @@ fn generate_lib_rs(
         })
         .collect();
 
-    // Collect action info
-    let actions: Vec<InterfaceInfo> = package
+    // Add only successfully generated IDL services
+    services.extend(idl_artifacts.services.iter().map(|name| InterfaceInfo {
+        type_name: name.clone(),
+        module_name: to_snake_case(name),
+    }));
+
+    // Collect action info (both .action and .idl actions)
+    let mut actions: Vec<InterfaceInfo> = package
         .interfaces
         .actions
+        .iter()
+        .map(|name| InterfaceInfo {
+            type_name: name.clone(),
+            module_name: to_snake_case(name),
+        })
+        .collect();
+
+    // Add only successfully generated IDL actions
+    actions.extend(idl_artifacts.actions.iter().map(|name| InterfaceInfo {
+        type_name: name.clone(),
+        module_name: to_snake_case(name),
+    }));
+
+    // Collect IDL-only messages (pure Rust types without RMW layer)
+    let idl_messages: Vec<InterfaceInfo> = idl_artifacts
+        .messages
+        .iter()
+        .map(|name| InterfaceInfo {
+            type_name: name.clone(),
+            module_name: to_snake_case(name),
+        })
+        .collect();
+
+    // Collect constant modules from IDL files
+    let constant_modules: Vec<InterfaceInfo> = idl_artifacts
+        .constant_modules
+        .iter()
+        .map(|name| InterfaceInfo {
+            type_name: name.clone(),
+            module_name: to_snake_case(name),
+        })
+        .collect();
+
+    // Collect enums from IDL files
+    let enums: Vec<InterfaceInfo> = idl_artifacts
+        .enums
         .iter()
         .map(|name| InterfaceInfo {
             type_name: name.clone(),
@@ -344,11 +574,18 @@ fn generate_lib_rs(
     let lib_rs = template.render()?;
     std::fs::write(src_dir.join("lib.rs"), lib_rs)?;
 
-    // Generate msg.rs if there are messages
-    if !messages.is_empty() {
+    // Generate msg.rs if there are messages or IDL artifacts
+    if !messages.is_empty()
+        || !idl_messages.is_empty()
+        || !constant_modules.is_empty()
+        || !enums.is_empty()
+    {
         let msg_template = MsgRsTemplate {
             package_name: package.name.clone(),
             messages: messages.clone(),
+            idl_messages,
+            constant_modules,
+            enums,
         };
         let msg_rs = msg_template.render()?;
         std::fs::write(src_dir.join("msg.rs"), msg_rs)?;
@@ -556,7 +793,8 @@ mod tests {
         std::fs::create_dir_all(&output_dir).unwrap();
 
         let deps = HashSet::new();
-        generate_lib_rs(&output_dir, &package, &deps).unwrap();
+        let idl_artifacts = GeneratedIdlArtifacts::default();
+        generate_lib_rs(&output_dir, &package, &deps, &idl_artifacts).unwrap();
 
         let lib_rs_content =
             std::fs::read_to_string(output_dir.join("src").join("lib.rs")).unwrap();

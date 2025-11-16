@@ -291,7 +291,8 @@ impl IdlLexer {
             }
             '"' => self.read_string_literal()?,
             _ if ch.is_ascii_digit()
-                || (ch == '-' && self.peek().is_some_and(|c| c.is_ascii_digit())) =>
+                || (ch == '-' && self.peek().is_some_and(|c| c.is_ascii_digit()))
+                || (ch == '.' && self.peek().is_some_and(|c| c.is_ascii_digit())) =>
             {
                 self.read_number_literal()?
             }
@@ -389,15 +390,10 @@ impl IdlLexer {
             self.advance();
         }
 
-        // Read integer part
-        while !self.is_at_end() && self.current_char().is_ascii_digit() {
-            number.push(self.current_char());
-            self.advance();
-        }
-
-        // Check for decimal point
-        if !self.is_at_end() && self.current_char() == '.' {
+        // Check if starting with decimal point (e.g., .1, .3d)
+        if self.current_char() == '.' {
             is_float = true;
+            number.push('0'); // Add leading zero for parsing
             number.push('.');
             self.advance();
 
@@ -405,6 +401,25 @@ impl IdlLexer {
             while !self.is_at_end() && self.current_char().is_ascii_digit() {
                 number.push(self.current_char());
                 self.advance();
+            }
+        } else {
+            // Read integer part
+            while !self.is_at_end() && self.current_char().is_ascii_digit() {
+                number.push(self.current_char());
+                self.advance();
+            }
+
+            // Check for decimal point
+            if !self.is_at_end() && self.current_char() == '.' {
+                is_float = true;
+                number.push('.');
+                self.advance();
+
+                // Read fractional part
+                while !self.is_at_end() && self.current_char().is_ascii_digit() {
+                    number.push(self.current_char());
+                    self.advance();
+                }
             }
         }
 

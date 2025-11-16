@@ -214,7 +214,29 @@ impl IdlParser {
         let mut members = Vec::new();
         loop {
             let name = self.expect_identifier()?;
-            let mut member = StructMember::new(name, member_type.clone());
+
+            // Check for array syntax: name[size]
+            let final_type = if self.check(&IdlTokenKind::LBracket) {
+                self.advance();
+
+                // Parse array size
+                let size_token = self.current()?;
+                let size = if let IdlTokenKind::IntegerLiteral(n) = size_token.kind {
+                    self.advance();
+                    n as usize
+                } else {
+                    return Err(self.error("Expected integer for array size"));
+                };
+
+                self.expect_token(&IdlTokenKind::RBracket)?;
+
+                // Wrap type in Array (tuple variant: Box<IdlType>, Vec<usize>)
+                IdlType::Array(Box::new(member_type.clone()), vec![size])
+            } else {
+                member_type.clone()
+            };
+
+            let mut member = StructMember::new(name, final_type);
             for annotation in &annotations {
                 member.add_annotation(annotation.clone());
             }
@@ -544,12 +566,35 @@ impl IdlParser {
                 if self.check(&IdlTokenKind::LParen) {
                     self.advance();
 
-                    // Parse parameters (key=value pairs)
+                    // Parse parameters (can be key=value pairs or single values)
+                    let mut param_index = 0;
                     while !self.check(&IdlTokenKind::RParen) && !self.is_at_end() {
-                        let key = self.expect_identifier()?;
-                        self.expect_token(&IdlTokenKind::Equal)?;
-                        let value = self.parse_annotation_value()?;
-                        annotation.add_param(key, value);
+                        // Try to parse as key=value or as a single value
+                        if let Ok(current) = self.current() {
+                            if let IdlTokenKind::Identifier(id) = &current.kind {
+                                let id_value = id.clone();
+                                self.advance();
+
+                                // Check if next token is '=' (key=value pair)
+                                if self.check(&IdlTokenKind::Equal) {
+                                    self.advance();
+                                    let value = self.parse_annotation_value()?;
+                                    annotation.add_param(id_value, value);
+                                } else {
+                                    // Single identifier value (use index as key)
+                                    let key = format!("_{}", param_index);
+                                    annotation
+                                        .add_param(key, AnnotationValue::Identifier(id_value));
+                                    param_index += 1;
+                                }
+                            } else {
+                                // Not an identifier, parse as a value with index key
+                                let value = self.parse_annotation_value()?;
+                                let key = format!("_{}", param_index);
+                                annotation.add_param(key, value);
+                                param_index += 1;
+                            }
+                        }
 
                         // Comma is optional for last parameter
                         if self.check(&IdlTokenKind::Comma) {
@@ -593,8 +638,20 @@ impl IdlParser {
                 Ok(AnnotationValue::Boolean(false))
             }
             IdlTokenKind::StringLiteral(s) => {
-                let value = s.clone();
+                // Handle adjacent string literals (concatenate them)
+                let mut value = s.clone();
                 self.advance();
+
+                // Keep concatenating if we find more adjacent string literals
+                while self.position < self.tokens.len() {
+                    if let IdlTokenKind::StringLiteral(next_s) = &self.tokens[self.position].kind {
+                        value.push_str(next_s);
+                        self.advance();
+                    } else {
+                        break;
+                    }
+                }
+
                 Ok(AnnotationValue::String(value))
             }
             IdlTokenKind::Identifier(id) => {

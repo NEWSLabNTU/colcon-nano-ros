@@ -52,22 +52,21 @@ impl Package {
         let msg_dir = share_dir.join("msg");
         if msg_dir.exists() {
             interfaces.messages = discover_interface_files(&msg_dir, "msg")?;
-            // Note: Ignoring .idl files - ROS 2 auto-generates these from .msg files
-            // Our parser only supports .msg/.srv/.action format, not OMG IDL format
+            interfaces.idl_messages = discover_interface_files(&msg_dir, "idl")?;
         }
 
         // Discover .srv files
         let srv_dir = share_dir.join("srv");
         if srv_dir.exists() {
             interfaces.services = discover_interface_files(&srv_dir, "srv")?;
-            // Note: Ignoring .idl files
+            interfaces.idl_services = discover_interface_files(&srv_dir, "idl")?;
         }
 
         // Discover .action files
         let action_dir = share_dir.join("action");
         if action_dir.exists() {
             interfaces.actions = discover_interface_files(&action_dir, "action")?;
-            // Note: Ignoring .idl files
+            interfaces.idl_actions = discover_interface_files(&action_dir, "idl")?;
         }
 
         Ok(Package {
@@ -137,6 +136,18 @@ fn discover_interface_files(dir: &Path, extension: &str) -> Result<Vec<String>> 
         if path.is_file() {
             if let Some(ext) = path.extension() {
                 if ext == extension {
+                    // Skip auto-generated .idl files (they're generated from .msg files)
+                    if extension == "idl" {
+                        if let Ok(content) = std::fs::read_to_string(&path) {
+                            if content
+                                .trim_start()
+                                .starts_with("// generated from rosidl_adapter")
+                            {
+                                continue;
+                            }
+                        }
+                    }
+
                     if let Some(name) = path.file_stem() {
                         files.push(name.to_string_lossy().to_string());
                     }

@@ -35,13 +35,13 @@ Repository = "https://github.com/colcon/colcon-cargo-ros2"
 Changelog = "https://github.com/colcon/colcon-cargo-ros2/milestones?state=closed"
 
 [project.entry-points."colcon_core.package_augmentation"]
-"ros.cargo_ros2" = "colcon_cargo_ros2.package_augmentation:RustBindingAugmentation"
+"ros.ament_cargo" = "colcon_cargo_ros2.package_augmentation:RustBindingAugmentation"
 
 [project.entry-points."colcon_core.task.build"]
-"ros.cargo_ros2" = "colcon_cargo_ros2.task.ament_cargo.build:AmentCargoBuildTask"
+"ros.ament_cargo" = "colcon_cargo_ros2.task.ament_cargo.build:AmentCargoBuildTask"
 
 [project.entry-points."colcon_core.task.test"]
-"ros.cargo_ros2" = "colcon_cargo_ros2.task.ament_cargo.test:AmentCargoTestTask"
+"ros.ament_cargo" = "colcon_cargo_ros2.task.ament_cargo.test:AmentCargoTestTask"
 
 [tool.maturin]
 bindings = "pyo3"

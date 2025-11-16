@@ -11,7 +11,15 @@ pub mod rmw {
     use serde::{Deserialize, Serialize};
 
     {% for service in services %}
-    include!("{{ service.module_name }}_rmw.rs");
+    // {{ service.type_name }} service and constants
+    pub mod {{ service.module_name }} {
+        use super::*;
+        include!("{{ service.module_name }}_rmw.rs");
+    }
+    // Re-export the service types at rmw level for API compatibility
+    pub use {{ service.module_name }}::{{ service.type_name }};
+    pub use {{ service.module_name }}::{{ service.type_name }}Request;
+    pub use {{ service.module_name }}::{{ service.type_name }}Response;
     {% endfor %}
 }
 

@@ -11,7 +11,13 @@ pub mod rmw {
     use serde::{Deserialize, Serialize};
 
     {% for message in messages %}
-    include!("{{ message.module_name }}_rmw.rs");
+    // {{ message.type_name }} message and constants
+    pub mod {{ message.module_name }} {
+        use super::*;
+        include!("{{ message.module_name }}_rmw.rs");
+    }
+    // Re-export the message type at rmw level for API compatibility
+    pub use {{ message.module_name }}::{{ message.type_name }};
     {% endfor %}
 }
 

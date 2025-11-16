@@ -11,7 +11,23 @@ pub mod rmw {
     use serde::{Deserialize, Serialize};
 
     {% for action in actions %}
-    include!("{{ action.module_name }}_rmw.rs");
+    // {{ action.type_name }} action and constants
+    pub mod {{ action.module_name }} {
+        use super::*;
+        include!("{{ action.module_name }}_rmw.rs");
+    }
+    // Re-export the action types at rmw level for API compatibility
+    pub use {{ action.module_name }}::{{ action.type_name }};
+    pub use {{ action.module_name }}::{{ action.type_name }}Goal;
+    pub use {{ action.module_name }}::{{ action.type_name }}Result;
+    pub use {{ action.module_name }}::{{ action.type_name }}Feedback;
+    pub use {{ action.module_name }}::{{ action.type_name }}FeedbackMessage;
+    pub use {{ action.module_name }}::{{ action.type_name }}_SendGoal;
+    pub use {{ action.module_name }}::{{ action.type_name }}_SendGoal_Request;
+    pub use {{ action.module_name }}::{{ action.type_name }}_SendGoal_Response;
+    pub use {{ action.module_name }}::{{ action.type_name }}_GetResult;
+    pub use {{ action.module_name }}::{{ action.type_name }}_GetResult_Request;
+    pub use {{ action.module_name }}::{{ action.type_name }}_GetResult_Response;
     {% endfor %}
 }
 

@@ -77,6 +77,59 @@ check-python:
     cd packages/colcon-cargo-ros2
     ruff check colcon_cargo_ros2/ test/
 
+# === PUBLISHING COMMANDS ===
+
+# Check wheel before publishing
+publish-check:
+    #!/usr/bin/env bash
+    set -e
+    cd packages/colcon-cargo-ros2
+    if [ ! -f target/wheels/*.whl ]; then
+        echo "Error: No wheel found. Run 'just build-python' first."
+        exit 1
+    fi
+    twine check target/wheels/*.whl
+    echo "✓ Wheel is valid and ready for upload"
+
+# Upload to Test PyPI
+publish-test:
+    #!/usr/bin/env bash
+    set -e
+    cd packages/colcon-cargo-ros2
+    if [ ! -f target/wheels/*.whl ]; then
+        echo "Error: No wheel found. Run 'just build-python' first."
+        exit 1
+    fi
+    echo "Uploading to Test PyPI..."
+    twine upload --repository testpypi target/wheels/*.whl
+    echo "✓ Uploaded to Test PyPI: https://test.pypi.org/project/colcon-cargo-ros2/"
+    echo ""
+    echo "To test installation:"
+    echo "  pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ colcon-cargo-ros2"
+
+# Upload to production PyPI
+publish:
+    #!/usr/bin/env bash
+    set -e
+    cd packages/colcon-cargo-ros2
+    if [ ! -f target/wheels/*.whl ]; then
+        echo "Error: No wheel found. Run 'just build-python' first."
+        exit 1
+    fi
+    echo "⚠️  WARNING: This will upload to PRODUCTION PyPI!"
+    echo "Make sure you've tested with 'just publish-test' first."
+    read -p "Continue? (yes/no): " confirm
+    if [ "$confirm" != "yes" ]; then
+        echo "Cancelled."
+        exit 1
+    fi
+    echo "Uploading to PyPI..."
+    twine upload target/wheels/*.whl
+    echo "✓ Uploaded to PyPI: https://pypi.org/project/colcon-cargo-ros2/"
+    echo ""
+    echo "To install:"
+    echo "  pip install colcon-cargo-ros2"
+
 # === COMBINED COMMANDS ===
 
 # Build packages

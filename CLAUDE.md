@@ -358,6 +358,45 @@ just build               # Build both workspaces
 
 ---
 
+## CI/CD and PyPI Publishing (2025-11-16)
+
+### Multi-Platform Wheel Builds
+
+Implemented comprehensive GitHub Actions workflows for automated PyPI publishing:
+
+**Workflows**:
+1. **Build Wheels** (`.github/workflows/wheels.yml`): Production release builds
+   - Triggered by: git tags (`v*`) or manual workflow dispatch
+   - Platforms: Linux (x86_64, aarch64), macOS (x86_64, aarch64), Windows (x64)
+   - Python versions: 3.8, 3.9, 3.10, 3.11, 3.12, 3.13
+   - Builds: 31 artifacts (30 wheels + 1 sdist)
+   - Auto-publishes to PyPI using trusted publishing (OIDC)
+
+2. **Test Build** (`.github/workflows/test-build.yml`): Quick validation on PRs
+   - Triggered by: pull requests and pushes to main
+   - Platforms: Ubuntu, macOS, Windows (latest)
+   - Python: 3.10 only (fast feedback)
+   - Does NOT publish to PyPI
+
+**Key Fixes**:
+- **Python 3.14 incompatibility**: PyO3 0.22.6 max support is Python 3.13
+  - Fixed by: Explicit Python version matrix instead of `--find-interpreter`
+- **manylinux interpreter detection**: Docker container couldn't find Python
+  - Fixed by: Removed `actions/setup-python` for Linux, added `-i python$VERSION` to maturin args
+- **sdist archive paths**: Maturin doesn't allow `..` in archive paths
+  - Fixed by: Copied README.md to package directory, updated pyproject.toml
+
+**Publishing Commands** (justfile):
+```bash
+just publish-check    # Validate wheel with twine
+just publish-test     # Upload to Test PyPI
+just publish          # Upload to production PyPI (with confirmation)
+```
+
+**Results**: All CI builds passing ✅, ready for PyPI distribution
+
+---
+
 ## Previous Architectural Improvements (2025-11-07)
 
 ### Shared Runtime Library (`rosidl_runtime_rs`)
@@ -793,8 +832,9 @@ MIT OR Apache-2.0 (to be decided - compatible with ROS 2 ecosystem)
 
 ---
 
-**Status**: Phase 3 Near Complete - Production Features (2025-11-14)
+**Status**: v0.2.0 Released - PyPI Ready! (2025-11-16)
 **Progress**: 14/20 subphases (70%) | 190+ tests passing | Zero warnings
-**Latest**: Constant type fix ✅, PackageAugmentationExtensionPoint ✅, Proper colcon integration ✅
+**Latest**: GitHub Actions CI ✅, Multi-platform wheel builds ✅, PyPI publishing workflow ✅
+**PyPI**: 31 artifacts (30 wheels + sdist) for Linux/macOS/Windows × Python 3.8-3.13
 **Architecture**: Two independent workspaces (user-libs + build-tools), workspace-level binding generation via colcon's package discovery, complete colcon integration
-**Next**: Phase 3.4 - Enhanced Testing & Documentation, then Phase 4 - colcon Integration (see docs/ROADMAP.md)
+**Next**: Phase 3.4 - Enhanced Testing & Documentation, community feedback on v0.2.0 release

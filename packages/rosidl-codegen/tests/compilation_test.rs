@@ -131,9 +131,6 @@ fn cargo_available() -> bool {
     Command::new("cargo").arg("--version").output().is_ok()
 }
 
-// Use the canonical to_snake_case from utils
-use rosidl_codegen::utils::to_snake_case;
-
 #[test]
 fn test_simple_message_compiles() -> Result<(), GeneratorError> {
     if !cargo_available() {
@@ -145,7 +142,6 @@ fn test_simple_message_compiles() -> Result<(), GeneratorError> {
     let msg = parse_message(msg_def).unwrap();
 
     let message_name = "SimpleMsg";
-    let module_name = to_snake_case(message_name);
     let result = generate_message_package("test_msgs", message_name, &msg, &HashSet::new())?;
 
     // Create temp directory for test package
@@ -165,29 +161,20 @@ fn test_simple_message_compiles() -> Result<(), GeneratorError> {
         r#"
 {}
 
-// FFI layer at package root (conflict-free)
-pub mod ffi {{
-    pub mod msg {{
-        pub mod {} {{
-            {}
-        }}
-
-        // Re-export for convenience
-        pub use {}::{};
-    }}
-}}
-
 // Idiomatic layer at package root
 pub mod msg {{
+    // RMW (FFI) layer
+    pub mod rmw {{
+        use super::super::rosidl_runtime_rs;
+        {}
+    }}
+
     // Idiomatic types
     {}
 }}
 "#,
         create_rosidl_runtime_stub(),
-        module_name,
         result.message_rmw,
-        module_name,
-        message_name,
         result.message_idiomatic
     );
 
@@ -225,7 +212,6 @@ fn test_message_with_arrays_compiles() -> Result<(), GeneratorError> {
     let msg = parse_message(msg_def).unwrap();
 
     let message_name = "ArrayMsg";
-    let module_name = to_snake_case(message_name);
     let result = generate_message_package("test_msgs", message_name, &msg, &HashSet::new())?;
 
     // Create temp directory for test package
@@ -245,29 +231,20 @@ fn test_message_with_arrays_compiles() -> Result<(), GeneratorError> {
         r#"
 {}
 
-// FFI layer at package root (conflict-free)
-pub mod ffi {{
-    pub mod msg {{
-        pub mod {} {{
-            {}
-        }}
-
-        // Re-export for convenience
-        pub use {}::{};
-    }}
-}}
-
 // Idiomatic layer at package root
 pub mod msg {{
+    // RMW (FFI) layer
+    pub mod rmw {{
+        use super::super::rosidl_runtime_rs;
+        {}
+    }}
+
     // Idiomatic types
     {}
 }}
 "#,
         create_rosidl_runtime_stub(),
-        module_name,
         result.message_rmw,
-        module_name,
-        message_name,
         result.message_idiomatic
     );
 
@@ -304,7 +281,6 @@ fn test_check_no_warnings() -> Result<(), GeneratorError> {
     let msg = parse_message(msg_def).unwrap();
 
     let message_name = "Point";
-    let module_name = to_snake_case(message_name);
     let result = generate_message_package("test_msgs", message_name, &msg, &HashSet::new())?;
 
     // Create temp directory
@@ -325,29 +301,21 @@ fn test_check_no_warnings() -> Result<(), GeneratorError> {
 
 {}
 
-// FFI layer at package root (conflict-free)
-pub mod ffi {{
-    pub mod msg {{
-        pub mod {} {{
-            {}
-        }}
-
-        // Re-export for convenience
-        pub use {}::{};
-    }}
-}}
-
 // Idiomatic layer at package root
 pub mod msg {{
+    // RMW (FFI) layer
+    pub mod rmw {{
+        #[allow(unused_imports)]
+        use super::super::rosidl_runtime_rs;
+        {}
+    }}
+
     // Idiomatic types
     {}
 }}
 "#,
         create_rosidl_runtime_stub(),
-        module_name,
         result.message_rmw,
-        module_name,
-        message_name,
         result.message_idiomatic
     );
 
@@ -394,7 +362,6 @@ fn test_clippy_no_warnings() -> Result<(), GeneratorError> {
     let msg = parse_message(msg_def).unwrap();
 
     let message_name = "TestMsg";
-    let module_name = to_snake_case(message_name);
     let result = generate_message_package("test_msgs", message_name, &msg, &HashSet::new())?;
 
     // Create temp directory
@@ -413,29 +380,20 @@ fn test_clippy_no_warnings() -> Result<(), GeneratorError> {
         r#"
 {}
 
-// FFI layer at package root (conflict-free)
-pub mod ffi {{
-    pub mod msg {{
-        pub mod {} {{
-            {}
-        }}
-
-        // Re-export for convenience
-        pub use {}::{};
-    }}
-}}
-
 // Idiomatic layer at package root
 pub mod msg {{
+    // RMW (FFI) layer
+    pub mod rmw {{
+        use super::super::rosidl_runtime_rs;
+        {}
+    }}
+
     // Idiomatic types
     {}
 }}
 "#,
         create_rosidl_runtime_stub(),
-        module_name,
         result.message_rmw,
-        module_name,
-        message_name,
         result.message_idiomatic
     );
 

@@ -29,18 +29,16 @@ fn test_idiomatic_uses_snake_case_modules() -> Result<(), GeneratorError> {
     let deps = HashSet::new();
     let result = generate_message_package("test_msgs", "Duration", &msg, &deps)?;
 
-    // Verify snake_case module paths are used (duration:: not Duration::)
+    // Verify RMW layer uses msg::rmw module path
     assert!(
         result
             .message_idiomatic
-            .contains("crate::ffi::msg::duration::Duration"),
-        "Idiomatic layer should use snake_case module paths"
+            .contains("crate::msg::rmw::Duration"),
+        "Idiomatic layer should reference RMW types via msg::rmw"
     );
     assert!(
-        !result
-            .message_idiomatic
-            .contains("crate::ffi::msg::Duration::"),
-        "Idiomatic layer should not use PascalCase in module paths"
+        !result.message_idiomatic.contains("crate::msg::Duration::"),
+        "Idiomatic layer should not use direct msg::Type paths for RMW references"
     );
 
     Ok(())

@@ -207,6 +207,9 @@ pub fn install_to_ament(config: InstallConfig) -> Result<()> {
 
     let package_name = root_package.name.clone();
 
+    // Get target directory from metadata (handles workspace builds correctly)
+    let target_dir = metadata.target_directory.clone().into_std_path_buf();
+
     // Check if this is a library-only package
     let is_lib_only = is_library_package(&config.project_root)?;
 
@@ -215,6 +218,7 @@ pub fn install_to_ament(config: InstallConfig) -> Result<()> {
         config.install_base.clone(),
         package_name,
         config.project_root.clone(),
+        target_dir,
         config.verbose,
         config.profile.clone(),
     );

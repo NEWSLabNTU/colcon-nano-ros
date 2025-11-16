@@ -16,6 +16,8 @@ pub struct AmentInstaller {
     package_name: String,
     /// Project root directory
     project_root: PathBuf,
+    /// Target directory (from cargo metadata - handles workspace builds)
+    target_dir: PathBuf,
     /// Verbose output
     verbose: bool,
     /// Build profile (debug or release)
@@ -28,6 +30,7 @@ impl AmentInstaller {
         install_base: PathBuf,
         package_name: String,
         project_root: PathBuf,
+        target_dir: PathBuf,
         verbose: bool,
         profile: String,
     ) -> Self {
@@ -35,6 +38,7 @@ impl AmentInstaller {
             install_base,
             package_name,
             project_root,
+            target_dir,
             verbose,
             profile,
         }
@@ -254,7 +258,7 @@ impl AmentInstaller {
 
     /// Install binaries to lib directory
     fn install_binaries(&self) -> Result<()> {
-        let target_dir = self.project_root.join("target").join(&self.profile);
+        let target_dir = self.target_dir.join(&self.profile);
         let cargo_toml_path = self.project_root.join("Cargo.toml");
 
         // Parse Cargo.toml to find binary names
@@ -441,11 +445,13 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let install_base = temp_dir.path().join("install").join("test_pkg");
         let project_root = temp_dir.path().join("project");
+        let target_dir = temp_dir.path().join("target");
 
         let installer = AmentInstaller::new(
             install_base.clone(),
             "test_pkg".to_string(),
             project_root,
+            target_dir,
             false,
             "debug".to_string(),
         );
@@ -519,6 +525,7 @@ edition = "2021"
             temp_dir.path().to_path_buf(),
             "my-pkg".to_string(),
             temp_dir.path().to_path_buf(),
+            temp_dir.path().join("target"),
             false,
             "debug".to_string(),
         );
@@ -549,6 +556,7 @@ path = "src/other.rs"
             temp_dir.path().to_path_buf(),
             "test".to_string(),
             temp_dir.path().to_path_buf(),
+            temp_dir.path().join("target"),
             false,
             "debug".to_string(),
         );

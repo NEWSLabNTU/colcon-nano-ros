@@ -2,6 +2,9 @@
 // Package: {{ package_name }}
 // Message: {{ message_name }}
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 {% for constant in constants %}
 pub const {{ constant.name }}: {{ constant.rust_type }} = {{ constant.value }};
 {% endfor %}

@@ -2,6 +2,9 @@
 // Package: {{ package_name }}
 // Service: {{ service_name }}
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 // Request constants
 {% for constant in request_constants %}
 pub const {{ constant.name }}: {{ constant.rust_type }} = {{ constant.value }};

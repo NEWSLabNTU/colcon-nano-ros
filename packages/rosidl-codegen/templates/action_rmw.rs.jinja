@@ -2,6 +2,9 @@
 // Package: {{ package_name }}
 // Action: {{ action_name }}
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 // Goal constants
 {% for constant in goal_constants %}
 pub const {{ constant.name }}: {{ constant.rust_type }} = {{ constant.value }};

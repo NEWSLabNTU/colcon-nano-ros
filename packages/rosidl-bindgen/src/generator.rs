@@ -10,6 +10,7 @@ use askama::Template;
 use eyre::{Result, WrapErr};
 use rosidl_codegen::{
     generate_action_package, generate_idl_file, generate_message_package, generate_service_package,
+    idl_generator::idl_struct_to_message,
     utils::{extract_dependencies, needs_big_array, to_snake_case},
     GeneratedPackage,
 };
@@ -24,6 +25,7 @@ struct InterfaceInfo {
 }
 
 /// Generated IDL artifacts (messages, services, actions, constants, enums)
+/// Note: IDL struct messages are tracked here and added to regular messages list
 #[derive(Debug, Default)]
 struct GeneratedIdlArtifacts {
     messages: Vec<String>,
@@ -49,7 +51,6 @@ struct LibRsTemplate {
 struct MsgRsTemplate {
     package_name: String,
     messages: Vec<InterfaceInfo>,
-    idl_messages: Vec<InterfaceInfo>,
     constant_modules: Vec<InterfaceInfo>,
     enums: Vec<InterfaceInfo>,
 }
@@ -116,7 +117,8 @@ pub fn generate_package(package: &Package, output_dir: &Path) -> Result<Generate
     let mut all_dependencies = HashSet::new();
     let mut package_needs_big_array = false;
 
-    // Track successfully generated IDL files
+    // Track successfully generated IDL artifacts
+    // Note: IDL struct messages are tracked separately to add to regular messages
     let mut generated_idl_messages = Vec::new();
     let mut generated_idl_services = Vec::new();
     let mut generated_idl_actions = Vec::new();
@@ -247,28 +249,68 @@ pub fn generate_package(package: &Package, output_dir: &Path) -> Result<Generate
             }
         };
 
-        // For now, we only extract dependencies from the package name
-        // TODO: Extract dependencies from IDL struct types
+        // Generate code from IDL file (constants and enums use IDL-specific generation)
         let idl_deps = HashSet::new();
-
         let generated = generate_idl_file(&package.name, &parsed_idl, &idl_deps)
             .map_err(|e| eyre::eyre!("Failed to generate IDL code for {}: {}", idl_name, e))?;
 
-        // Extract dependencies from generated structs
-        all_dependencies.extend(idl_deps);
-
+        // Write IDL-specific artifacts (constants and enums)
         write_generated_idl(&generated, &package_output, idl_name)?;
-        message_count += generated.structs.len();
 
-        // Track successfully generated IDL artifacts
-        for (struct_name, _) in &generated.structs {
-            generated_idl_messages.push(struct_name.clone());
-        }
+        // Track constants and enums
         for (const_mod_name, _) in &generated.constant_modules {
             generated_idl_constant_modules.push(const_mod_name.clone());
         }
         for (enum_name, _) in &generated.enums {
             generated_idl_enums.push(enum_name.clone());
+        }
+
+        // Extract all structs from the IDL module to convert to Messages
+        fn extract_structs(
+            module: &rosidl_parser::idl::ast::IdlModule,
+            structs: &mut Vec<rosidl_parser::idl::ast::IdlStruct>,
+        ) {
+            for struct_def in &module.structs {
+                structs.push(struct_def.clone());
+            }
+            for nested_module in &module.modules {
+                extract_structs(nested_module, structs);
+            }
+        }
+
+        let mut idl_structs = Vec::new();
+        extract_structs(&parsed_idl.module, &mut idl_structs);
+
+        // Generate RMW + idiomatic code for each IDL struct (same as .msg files)
+        for idl_struct in idl_structs {
+            // Convert IDL struct to Message for RMW generation
+            let message = idl_struct_to_message(&idl_struct, &package.name);
+
+            // Check if this message needs big_array support
+            if needs_big_array(&message) {
+                package_needs_big_array = true;
+            }
+
+            // Generate both RMW and idiomatic layers (same as .msg files)
+            let generated_msg = generate_message_package(
+                &package.name,
+                &idl_struct.name,
+                &message,
+                &known_packages,
+            )
+            .wrap_err_with(|| {
+                format!(
+                    "Failed to generate message from IDL struct: {}",
+                    idl_struct.name
+                )
+            })?;
+
+            // Write both RMW and idiomatic files
+            write_generated_package(&generated_msg, &package_output, &idl_struct.name)?;
+            message_count += 1;
+
+            // Track this IDL struct as a regular message
+            generated_idl_messages.push(idl_struct.name.clone());
         }
     }
 
@@ -488,8 +530,8 @@ fn generate_lib_rs(
     let src_dir = output_dir.join("src");
     std::fs::create_dir_all(&src_dir)?;
 
-    // Collect message info from .msg files only
-    let messages: Vec<InterfaceInfo> = package
+    // Collect message info from .msg files and IDL structs
+    let mut messages: Vec<InterfaceInfo> = package
         .interfaces
         .messages
         .iter()
@@ -498,6 +540,12 @@ fn generate_lib_rs(
             module_name: to_snake_case(name),
         })
         .collect();
+
+    // Add IDL struct messages (they have RMW layer now)
+    messages.extend(idl_artifacts.messages.iter().map(|name| InterfaceInfo {
+        type_name: name.clone(),
+        module_name: to_snake_case(name),
+    }));
 
     // Collect service info (both .srv and .idl services)
     let mut services: Vec<InterfaceInfo> = package
@@ -533,16 +581,6 @@ fn generate_lib_rs(
         module_name: to_snake_case(name),
     }));
 
-    // Collect IDL-only messages (pure Rust types without RMW layer)
-    let idl_messages: Vec<InterfaceInfo> = idl_artifacts
-        .messages
-        .iter()
-        .map(|name| InterfaceInfo {
-            type_name: name.clone(),
-            module_name: to_snake_case(name),
-        })
-        .collect();
-
     // Collect constant modules from IDL files
     let constant_modules: Vec<InterfaceInfo> = idl_artifacts
         .constant_modules
@@ -575,15 +613,10 @@ fn generate_lib_rs(
     std::fs::write(src_dir.join("lib.rs"), lib_rs)?;
 
     // Generate msg.rs if there are messages or IDL artifacts
-    if !messages.is_empty()
-        || !idl_messages.is_empty()
-        || !constant_modules.is_empty()
-        || !enums.is_empty()
-    {
+    if !messages.is_empty() || !constant_modules.is_empty() || !enums.is_empty() {
         let msg_template = MsgRsTemplate {
             package_name: package.name.clone(),
             messages: messages.clone(),
-            idl_messages,
             constant_modules,
             enums,
         };

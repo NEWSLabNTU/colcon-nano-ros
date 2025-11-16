@@ -6,13 +6,15 @@
 //! - Structs with annotations
 
 use crate::types::{
-    escape_keyword, idl_constant_value_to_rust, rust_type_for_idl, rust_type_for_idl_constant,
-    to_snake_case,
+    annotation_value_to_constant_value, escape_keyword, idl_constant_value_to_rust,
+    idl_primitive_to_primitive, rust_type_for_idl, rust_type_for_idl_constant, to_snake_case,
 };
+use rosidl_parser::ast::{FieldType, Message};
 use rosidl_parser::idl::ast::{
     Annotation, AnnotationValue, ConstantModule, EnumDef, IdlFile, IdlModule, IdlStruct,
     StructMember,
 };
+use rosidl_parser::idl::types::IdlType;
 use std::collections::HashSet;
 
 /// Generate Rust code for an IDL file.
@@ -252,6 +254,111 @@ pub fn extract_annotations(struct_def: &IdlStruct) -> Vec<(String, Annotation)> 
         .iter()
         .map(|a| (a.name.clone(), a.clone()))
         .collect()
+}
+
+/// Convert an IDL struct to a Message (for RMW layer generation).
+///
+/// This allows IDL structs to use the same code generation templates as .msg files.
+pub fn idl_struct_to_message(struct_def: &IdlStruct, package_name: &str) -> Message {
+    let mut message = Message::new();
+
+    // Convert struct members to message fields
+    for member in &struct_def.members {
+        let field_type = idl_type_to_field_type(&member.member_type, package_name);
+
+        // Check if this member has a @default annotation
+        let default_value = member
+            .get_default_value()
+            .map(annotation_value_to_constant_value);
+
+        message.fields.push(rosidl_parser::ast::Field {
+            field_type,
+            name: member.name.clone(),
+            default_value,
+        });
+    }
+
+    message
+}
+
+/// Convert an IDL type to a FieldType (for .msg compatibility).
+fn idl_type_to_field_type(idl_type: &IdlType, package_name: &str) -> FieldType {
+    match idl_type {
+        IdlType::Primitive(prim) => FieldType::Primitive(idl_primitive_to_primitive(prim)),
+        IdlType::String(bound) => match bound {
+            Some(size) => FieldType::BoundedString(*size),
+            None => FieldType::String,
+        },
+        IdlType::WString(bound) => match bound {
+            Some(size) => FieldType::BoundedWString(*size),
+            None => FieldType::WString,
+        },
+        IdlType::Sequence(inner, bound) => {
+            let element_type = Box::new(idl_type_to_field_type(inner, package_name));
+            match bound {
+                Some(max_size) => FieldType::BoundedSequence {
+                    element_type,
+                    max_size: *max_size,
+                },
+                None => FieldType::Sequence { element_type },
+            }
+        }
+        IdlType::Array(inner, dimensions) => {
+            // Arrays in IDL can be multi-dimensional, but we'll handle the first dimension
+            // TODO: Support multi-dimensional arrays properly
+            let element_type = Box::new(idl_type_to_field_type(inner, package_name));
+            let size = dimensions.first().copied().unwrap_or(1);
+            FieldType::Array { element_type, size }
+        }
+        IdlType::UserDefined(type_name) => {
+            // Check if it's a scoped name (package::Type)
+            if type_name.contains("::") {
+                // Parse scoped name
+                let parts: Vec<&str> = type_name.split("::").collect();
+                if parts.len() == 2 {
+                    FieldType::NamespacedType {
+                        package: Some(parts[0].to_string()),
+                        name: parts[1].to_string(),
+                    }
+                } else {
+                    // Fall back to using current package
+                    FieldType::NamespacedType {
+                        package: Some(package_name.to_string()),
+                        name: type_name.clone(),
+                    }
+                }
+            } else {
+                // Type from same package
+                FieldType::NamespacedType {
+                    package: Some(package_name.to_string()),
+                    name: type_name.clone(),
+                }
+            }
+        }
+        IdlType::Scoped(parts) => {
+            // Scoped name like module::submodule::Type
+            if parts.len() >= 2 {
+                let package = parts[0].clone();
+                let name = parts.last().unwrap().clone();
+                FieldType::NamespacedType {
+                    package: Some(package),
+                    name,
+                }
+            } else if parts.len() == 1 {
+                // Single part - type from current package
+                FieldType::NamespacedType {
+                    package: Some(package_name.to_string()),
+                    name: parts[0].clone(),
+                }
+            } else {
+                // Empty parts - shouldn't happen, but handle gracefully
+                FieldType::NamespacedType {
+                    package: Some(package_name.to_string()),
+                    name: "Unknown".to_string(),
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]

@@ -583,3 +583,59 @@ pub fn is_idl_primitive(idl_type: &IdlType) -> bool {
 pub fn is_idl_string(idl_type: &IdlType) -> bool {
     matches!(idl_type, IdlType::String(_) | IdlType::WString(_))
 }
+
+/// Convert IDL primitive to .msg primitive type
+pub fn idl_primitive_to_primitive(
+    idl_prim: &rosidl_parser::idl::types::IdlPrimitiveType,
+) -> rosidl_parser::PrimitiveType {
+    use rosidl_parser::idl::types::IdlPrimitiveType;
+    use rosidl_parser::PrimitiveType;
+
+    match idl_prim {
+        IdlPrimitiveType::Short => PrimitiveType::Int16,
+        IdlPrimitiveType::UnsignedShort => PrimitiveType::UInt16,
+        IdlPrimitiveType::Long => PrimitiveType::Int32,
+        IdlPrimitiveType::UnsignedLong => PrimitiveType::UInt32,
+        IdlPrimitiveType::LongLong => PrimitiveType::Int64,
+        IdlPrimitiveType::UnsignedLongLong => PrimitiveType::UInt64,
+        IdlPrimitiveType::Float => PrimitiveType::Float32,
+        IdlPrimitiveType::Double => PrimitiveType::Float64,
+        IdlPrimitiveType::LongDouble => PrimitiveType::Float64, // Map to f64
+        IdlPrimitiveType::Char => PrimitiveType::Char,
+        IdlPrimitiveType::Wchar => PrimitiveType::UInt16, // Wchar is 16-bit
+        IdlPrimitiveType::Boolean => PrimitiveType::Bool,
+        IdlPrimitiveType::Octet => PrimitiveType::Byte,
+        IdlPrimitiveType::Int8 => PrimitiveType::Int8,
+        IdlPrimitiveType::Uint8 => PrimitiveType::UInt8,
+        IdlPrimitiveType::Int16 => PrimitiveType::Int16,
+        IdlPrimitiveType::Uint16 => PrimitiveType::UInt16,
+        IdlPrimitiveType::Int32 => PrimitiveType::Int32,
+        IdlPrimitiveType::Uint32 => PrimitiveType::UInt32,
+        IdlPrimitiveType::Int64 => PrimitiveType::Int64,
+        IdlPrimitiveType::Uint64 => PrimitiveType::UInt64,
+    }
+}
+
+/// Convert IDL annotation value to .msg constant value
+pub fn annotation_value_to_constant_value(
+    ann_val: &rosidl_parser::idl::ast::AnnotationValue,
+) -> rosidl_parser::ast::ConstantValue {
+    use rosidl_parser::ast::ConstantValue;
+    use rosidl_parser::idl::ast::AnnotationValue;
+
+    match ann_val {
+        AnnotationValue::Integer(i) => ConstantValue::Integer(*i),
+        AnnotationValue::Float(f) => ConstantValue::Float(*f),
+        AnnotationValue::String(s) => ConstantValue::String(s.clone()),
+        AnnotationValue::Boolean(b) => ConstantValue::Bool(*b),
+        AnnotationValue::Identifier(id) => {
+            // For identifiers, we need to check if they're boolean keywords
+            match id.as_str() {
+                "TRUE" | "True" | "true" => ConstantValue::Bool(true),
+                "FALSE" | "False" | "false" => ConstantValue::Bool(false),
+                // For other identifiers, treat as string
+                _ => ConstantValue::String(id.clone()),
+            }
+        }
+    }
+}

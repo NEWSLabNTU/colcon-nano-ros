@@ -28,13 +28,6 @@ mod {{ message.module_name }};
 pub use {{ message.module_name }}::{{ message.type_name }};
 {% endfor %}
 
-// IDL-only messages (no RMW layer - pure Rust types)
-{% for idl_message in idl_messages %}
-#[path = "{{ idl_message.module_name }}_idiomatic.rs"]
-mod {{ idl_message.module_name }};
-pub use {{ idl_message.module_name }}::{{ idl_message.type_name }};
-{% endfor %}
-
 // Constant modules from IDL files
 {% for const_mod in constant_modules %}
 #[path = "{{ const_mod.module_name }}_constants.rs"]

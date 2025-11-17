@@ -137,6 +137,44 @@ pub fn is_bounded_string_array(field_type: &FieldType) -> bool {
     }
 }
 
+/// Check if a field type is an array of unbounded wstrings
+pub fn is_unbounded_wstring_array(field_type: &FieldType) -> bool {
+    match field_type {
+        FieldType::Array { element_type, .. } => matches!(**element_type, FieldType::WString),
+        _ => false,
+    }
+}
+
+/// Check if a field type is an array of bounded wstrings
+pub fn is_bounded_wstring_array(field_type: &FieldType) -> bool {
+    match field_type {
+        FieldType::Array { element_type, .. } => {
+            matches!(**element_type, FieldType::BoundedWString(_))
+        }
+        _ => false,
+    }
+}
+
+/// Check if a field type is a sequence of unbounded wstrings
+pub fn is_unbounded_wstring_sequence(field_type: &FieldType) -> bool {
+    match field_type {
+        FieldType::Sequence { element_type } | FieldType::BoundedSequence { element_type, .. } => {
+            matches!(**element_type, FieldType::WString)
+        }
+        _ => false,
+    }
+}
+
+/// Check if a field type is a sequence of bounded wstrings
+pub fn is_bounded_wstring_sequence(field_type: &FieldType) -> bool {
+    match field_type {
+        FieldType::Sequence { element_type } | FieldType::BoundedSequence { element_type, .. } => {
+            matches!(**element_type, FieldType::BoundedWString(_))
+        }
+        _ => false,
+    }
+}
+
 /// Check if a field type is an array of nested messages (needs element conversion)
 pub fn is_nested_array(field_type: &FieldType) -> bool {
     match field_type {

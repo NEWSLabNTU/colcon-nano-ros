@@ -65,6 +65,16 @@ impl From<&{{ message_name }}> for crate::msg::rmw::{{ message_name }} {
             {{ field.name }}: crate::rosidl_runtime_rs::BoundedSequence::try_from(
                 idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::BoundedString::try_from(item.as_str()).unwrap()).collect::<Vec<_>>()
             ).unwrap(),
+            {% else if field.is_bounded_sequence && field.is_unbounded_wstring_sequence %}
+            // Vec<String> → BoundedSequence<rosidl_runtime_rs::WString> (use try_from)
+            {{ field.name }}: crate::rosidl_runtime_rs::BoundedSequence::try_from(
+                idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::WString::from(item.as_str())).collect::<Vec<_>>()
+            ).unwrap(),
+            {% else if field.is_bounded_sequence && field.is_bounded_wstring_sequence %}
+            // Vec<String> → BoundedSequence<rosidl_runtime_rs::BoundedWString<N>> (use try_from)
+            {{ field.name }}: crate::rosidl_runtime_rs::BoundedSequence::try_from(
+                idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::BoundedWString::try_from(item.as_str()).unwrap()).collect::<Vec<_>>()
+            ).unwrap(),
             {% else if field.is_bounded_sequence %}
             // Vec → BoundedSequence conversion with element conversion for nested messages (use try_from)
             {{ field.name }}: crate::rosidl_runtime_rs::BoundedSequence::try_from(
@@ -83,6 +93,16 @@ impl From<&{{ message_name }}> for crate::msg::rmw::{{ message_name }} {
             {{ field.name }}: crate::rosidl_runtime_rs::Sequence::from(
                 idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::BoundedString::try_from(item.as_str()).unwrap()).collect::<Vec<_>>()
             ),
+            {% else if field.is_unbounded_wstring_sequence %}
+            // Vec<String> → Sequence<rosidl_runtime_rs::WString>
+            {{ field.name }}: crate::rosidl_runtime_rs::Sequence::from(
+                idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::WString::from(item.as_str())).collect::<Vec<_>>()
+            ),
+            {% else if field.is_bounded_wstring_sequence %}
+            // Vec<String> → Sequence<rosidl_runtime_rs::BoundedWString<N>>
+            {{ field.name }}: crate::rosidl_runtime_rs::Sequence::from(
+                idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::BoundedWString::try_from(item.as_str()).unwrap()).collect::<Vec<_>>()
+            ),
             {% else if field.is_sequence %}
             // Vec → Sequence conversion with element conversion for nested messages
             {{ field.name }}: crate::rosidl_runtime_rs::Sequence::from(
@@ -94,6 +114,12 @@ impl From<&{{ message_name }}> for crate::msg::rmw::{{ message_name }} {
             {% else if field.is_bounded_string_array %}
             // [String; N] → [rosidl_runtime_rs::BoundedString<M>; N] with element conversion
             {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::BoundedString::try_from(idiomatic.{{ field.name }}[i].as_str()).unwrap()),
+            {% else if field.is_unbounded_wstring_array %}
+            // [String; N] → [rosidl_runtime_rs::WString; N] with element conversion
+            {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::WString::from(idiomatic.{{ field.name }}[i].as_str())),
+            {% else if field.is_bounded_wstring_array %}
+            // [String; N] → [rosidl_runtime_rs::BoundedWString<M>; N] with element conversion
+            {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::BoundedWString::try_from(idiomatic.{{ field.name }}[i].as_str()).unwrap()),
             {% else if field.is_nested_array %}
             // [NestedType; N] → [rmw::NestedType; N] with element conversion
             {{ field.name }}: std::array::from_fn(|i| (&idiomatic.{{ field.name }}[i]).into()),
@@ -138,6 +164,12 @@ impl From<&crate::msg::rmw::{{ message_name }}> for {{ message_name }} {
             {% else if field.is_bounded_string_sequence %}
             // Sequence/BoundedSequence<rosidl_runtime_rs::BoundedString<N>> → Vec<String>
             {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
+            {% else if field.is_unbounded_wstring_sequence %}
+            // Sequence/BoundedSequence<rosidl_runtime_rs::WString> → Vec<String>
+            {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
+            {% else if field.is_bounded_wstring_sequence %}
+            // Sequence/BoundedSequence<rosidl_runtime_rs::BoundedWString<N>> → Vec<String>
+            {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
             {% else if field.is_sequence %}
             // Sequence/BoundedSequence → Vec conversion with element conversion for nested messages
             {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.into()).collect(),
@@ -146,6 +178,12 @@ impl From<&crate::msg::rmw::{{ message_name }}> for {{ message_name }} {
             {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
             {% else if field.is_bounded_string_array %}
             // [rosidl_runtime_rs::BoundedString<M>; N] → [String; N] with element conversion
+            {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
+            {% else if field.is_unbounded_wstring_array %}
+            // [rosidl_runtime_rs::WString; N] → [String; N] with element conversion
+            {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
+            {% else if field.is_bounded_wstring_array %}
+            // [rosidl_runtime_rs::BoundedWString<M>; N] → [String; N] with element conversion
             {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
             {% else if field.is_nested_array %}
             // [rmw::NestedType; N] → [NestedType; N] with element conversion

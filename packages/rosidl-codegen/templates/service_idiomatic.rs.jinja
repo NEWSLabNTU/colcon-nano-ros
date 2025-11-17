@@ -59,9 +59,24 @@ pub mod request {
                 {% else if field.is_sequence %}
                 // Sequence → Vec conversion with element conversion
                 {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.into()).collect(),
-                {% else if field.is_array %}
-                // Arrays are Clone
+                {% else if field.is_unbounded_string_array %}
+                // [rosidl_runtime_rs::String; N] → [String; N] with element conversion
+                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
+                {% else if field.is_bounded_string_array %}
+                // [rosidl_runtime_rs::BoundedString<M>; N] → [String; N] with element conversion
+                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
+                {% else if field.is_unbounded_wstring_array %}
+                // [rosidl_runtime_rs::WString; N] → [String; N] with element conversion
+                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
+                {% else if field.is_bounded_wstring_array %}
+                // [rosidl_runtime_rs::BoundedWString<M>; N] → [String; N] with element conversion
+                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
+                {% else if field.is_primitive_array %}
+                // Primitive arrays are Clone
                 {{ field.name }}: rmw.{{ field.name }}.clone(),
+                {% else if field.is_array %}
+                // Message arrays need element-wise conversion
+                {{ field.name }}: std::array::from_fn(|i| (&rmw.{{ field.name }}[i]).into()),
                 {% else if field.is_primitive %}
                 // Primitives are Copy, just copy the value
                 {{ field.name }}: rmw.{{ field.name }},
@@ -98,9 +113,24 @@ pub mod request {
                 {{ field.name }}: crate::rosidl_runtime_rs::Sequence::from(
                     idiomatic.{{ field.name }}.iter().map(|item| item.into()).collect::<Vec<_>>()
                 ),
-                {% else if field.is_array %}
-                // Arrays are Clone
+                {% else if field.is_unbounded_string_array %}
+                // [String; N] → [rosidl_runtime_rs::String; N] with element conversion
+                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::String::from(idiomatic.{{ field.name }}[i].as_str())),
+                {% else if field.is_bounded_string_array %}
+                // [String; N] → [rosidl_runtime_rs::BoundedString<M>; N] with element conversion
+                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::BoundedString::try_from(idiomatic.{{ field.name }}[i].as_str()).unwrap()),
+                {% else if field.is_unbounded_wstring_array %}
+                // [String; N] → [rosidl_runtime_rs::WString; N] with element conversion
+                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::WString::from(idiomatic.{{ field.name }}[i].as_str())),
+                {% else if field.is_bounded_wstring_array %}
+                // [String; N] → [rosidl_runtime_rs::BoundedWString<M>; N] with element conversion
+                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::BoundedWString::try_from(idiomatic.{{ field.name }}[i].as_str()).unwrap()),
+                {% else if field.is_primitive_array %}
+                // Primitive arrays are Clone
                 {{ field.name }}: idiomatic.{{ field.name }}.clone(),
+                {% else if field.is_array %}
+                // Message arrays need element-wise conversion
+                {{ field.name }}: std::array::from_fn(|i| (&idiomatic.{{ field.name }}[i]).into()),
                 {% else if field.is_primitive %}
                 // Primitives are Copy, just copy the value
                 {{ field.name }}: idiomatic.{{ field.name }},
@@ -183,9 +213,24 @@ pub mod response {
                 {% else if field.is_sequence %}
                 // Sequence → Vec conversion with element conversion
                 {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.into()).collect(),
-                {% else if field.is_array %}
-                // Arrays are Clone
+                {% else if field.is_unbounded_string_array %}
+                // [rosidl_runtime_rs::String; N] → [String; N] with element conversion
+                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
+                {% else if field.is_bounded_string_array %}
+                // [rosidl_runtime_rs::BoundedString<M>; N] → [String; N] with element conversion
+                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
+                {% else if field.is_unbounded_wstring_array %}
+                // [rosidl_runtime_rs::WString; N] → [String; N] with element conversion
+                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
+                {% else if field.is_bounded_wstring_array %}
+                // [rosidl_runtime_rs::BoundedWString<M>; N] → [String; N] with element conversion
+                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
+                {% else if field.is_primitive_array %}
+                // Primitive arrays are Clone
                 {{ field.name }}: rmw.{{ field.name }}.clone(),
+                {% else if field.is_array %}
+                // Message arrays need element-wise conversion
+                {{ field.name }}: std::array::from_fn(|i| (&rmw.{{ field.name }}[i]).into()),
                 {% else if field.is_primitive %}
                 // Primitives are Copy, just copy the value
                 {{ field.name }}: rmw.{{ field.name }},
@@ -222,9 +267,24 @@ pub mod response {
                 {{ field.name }}: crate::rosidl_runtime_rs::Sequence::from(
                     idiomatic.{{ field.name }}.iter().map(|item| item.into()).collect::<Vec<_>>()
                 ),
-                {% else if field.is_array %}
-                // Arrays are Clone
+                {% else if field.is_unbounded_string_array %}
+                // [String; N] → [rosidl_runtime_rs::String; N] with element conversion
+                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::String::from(idiomatic.{{ field.name }}[i].as_str())),
+                {% else if field.is_bounded_string_array %}
+                // [String; N] → [rosidl_runtime_rs::BoundedString<M>; N] with element conversion
+                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::BoundedString::try_from(idiomatic.{{ field.name }}[i].as_str()).unwrap()),
+                {% else if field.is_unbounded_wstring_array %}
+                // [String; N] → [rosidl_runtime_rs::WString; N] with element conversion
+                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::WString::from(idiomatic.{{ field.name }}[i].as_str())),
+                {% else if field.is_bounded_wstring_array %}
+                // [String; N] → [rosidl_runtime_rs::BoundedWString<M>; N] with element conversion
+                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::BoundedWString::try_from(idiomatic.{{ field.name }}[i].as_str()).unwrap()),
+                {% else if field.is_primitive_array %}
+                // Primitive arrays are Clone
                 {{ field.name }}: idiomatic.{{ field.name }}.clone(),
+                {% else if field.is_array %}
+                // Message arrays need element-wise conversion
+                {{ field.name }}: std::array::from_fn(|i| (&idiomatic.{{ field.name }}[i]).into()),
                 {% else if field.is_primitive %}
                 // Primitives are Copy, just copy the value
                 {{ field.name }}: idiomatic.{{ field.name }},

@@ -41,6 +41,7 @@ pub mod request {
 
     // Conversion from FFI layer
     impl From<crate::srv::rmw::{{ service_name }}Request> for {{ service_name }}_Request {
+        #[allow(unused_variables)]
         fn from(rmw: crate::srv::rmw::{{ service_name }}Request) -> Self {
             Self {
                 {% for field in request_fields %}
@@ -91,6 +92,7 @@ pub mod request {
 
     // Conversion to FFI layer
     impl From<{{ service_name }}_Request> for crate::srv::rmw::{{ service_name }}Request {
+        #[allow(unused_variables)]
         fn from(idiomatic: {{ service_name }}_Request) -> Self {
             Self {
                 {% for field in request_fields %}
@@ -195,6 +197,7 @@ pub mod response {
 
     // Conversion from FFI layer
     impl From<crate::srv::rmw::{{ service_name }}Response> for {{ service_name }}_Response {
+        #[allow(unused_variables)]
         fn from(rmw: crate::srv::rmw::{{ service_name }}Response) -> Self {
             Self {
                 {% for field in response_fields %}
@@ -245,6 +248,7 @@ pub mod response {
 
     // Conversion to FFI layer
     impl From<{{ service_name }}_Response> for crate::srv::rmw::{{ service_name }}Response {
+        #[allow(unused_variables)]
         fn from(idiomatic: {{ service_name }}_Response) -> Self {
             Self {
                 {% for field in response_fields %}

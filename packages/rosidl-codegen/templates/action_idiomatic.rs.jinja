@@ -40,6 +40,7 @@ pub mod goal {
 
     // Conversion from FFI layer
     impl From<crate::action::rmw::{{ action_name }}Goal> for {{ action_name }}Goal {
+        #[allow(unused_variables)]
         fn from(rmw: crate::action::rmw::{{ action_name }}Goal) -> Self {
             Self {
                 {% for field in goal_fields %}
@@ -90,6 +91,7 @@ pub mod goal {
 
     // Conversion to FFI layer
     impl From<{{ action_name }}Goal> for crate::action::rmw::{{ action_name }}Goal {
+        #[allow(unused_variables)]
         fn from(idiomatic: {{ action_name }}Goal) -> Self {
             Self {
                 {% for field in goal_fields %}
@@ -193,6 +195,7 @@ pub mod result {
 
     // Conversion from FFI layer
     impl From<crate::action::rmw::{{ action_name }}Result> for {{ action_name }}Result {
+        #[allow(unused_variables)]
         fn from(rmw: crate::action::rmw::{{ action_name }}Result) -> Self {
             Self {
                 {% for field in result_fields %}
@@ -243,6 +246,7 @@ pub mod result {
 
     // Conversion to FFI layer
     impl From<{{ action_name }}Result> for crate::action::rmw::{{ action_name }}Result {
+        #[allow(unused_variables)]
         fn from(idiomatic: {{ action_name }}Result) -> Self {
             Self {
                 {% for field in result_fields %}
@@ -346,6 +350,7 @@ pub mod feedback {
 
     // Conversion from FFI layer
     impl From<crate::action::rmw::{{ action_name }}Feedback> for {{ action_name }}Feedback {
+        #[allow(unused_variables)]
         fn from(rmw: crate::action::rmw::{{ action_name }}Feedback) -> Self {
             Self {
                 {% for field in feedback_fields %}
@@ -396,6 +401,7 @@ pub mod feedback {
 
     // Conversion to FFI layer
     impl From<{{ action_name }}Feedback> for crate::action::rmw::{{ action_name }}Feedback {
+        #[allow(unused_variables)]
         fn from(idiomatic: {{ action_name }}Feedback) -> Self {
             Self {
                 {% for field in feedback_fields %}

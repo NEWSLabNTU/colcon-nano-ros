@@ -74,6 +74,9 @@ impl AmentInstaller {
         // Install metadata
         self.install_metadata()?;
 
+        // Install additional files from [package.metadata.ros]
+        self.install_metadata_ros_files()?;
+
         // Create colcon DSV files (package.dsv and local_setup.dsv)
         self.create_dsv_files()?;
 
@@ -322,6 +325,102 @@ impl AmentInstaller {
             }
         } else if self.verbose {
             eprintln!("  Note: No package.xml found (optional)");
+        }
+
+        Ok(())
+    }
+
+    /// Install additional files from [package.metadata.ros] in Cargo.toml
+    ///
+    /// Supports both directories and individual files:
+    /// - install_to_share: Array of paths to copy to install/<pkg>/share/<pkg>/
+    /// - install_to_include: Array of paths to copy to install/<pkg>/include/<pkg>/
+    /// - install_to_lib: Array of paths to copy to install/<pkg>/lib/<pkg>/
+    ///
+    /// Examples:
+    /// ```toml
+    /// [package.metadata.ros]
+    /// install_to_share = ["launch", "config", "README.md"]  # Directories and files
+    /// install_to_include = ["include"]
+    /// install_to_lib = ["scripts"]
+    /// ```
+    ///
+    /// Behavior:
+    /// - Directories: Copied recursively, name preserved (e.g., "launch" → share/<pkg>/launch/)
+    /// - Individual files: Filename only preserved (e.g., "config/params.yaml" → share/<pkg>/params.yaml)
+    /// - Missing paths: Build fails with error
+    fn install_metadata_ros_files(&self) -> Result<()> {
+        use toml::Value;
+
+        let cargo_toml_path = self.project_root.join("Cargo.toml");
+        let cargo_toml_content = match fs::read_to_string(&cargo_toml_path) {
+            Ok(content) => content,
+            Err(_) => return Ok(()), // No Cargo.toml, nothing to do
+        };
+
+        let cargo_toml: Value = match cargo_toml_content.parse() {
+            Ok(value) => value,
+            Err(_) => return Ok(()), // Can't parse, skip
+        };
+
+        // Navigate to [package.metadata.ros]
+        let metadata_ros = match cargo_toml
+            .get("package")
+            .and_then(|p| p.get("metadata"))
+            .and_then(|m| m.get("ros"))
+        {
+            Some(Value::Table(table)) => table,
+            _ => return Ok(()), // No metadata.ros section
+        };
+
+        // Process each installation target
+        for (subdir, dest_base) in [
+            ("share", self.share_dir()),
+            (
+                "include",
+                self.install_base.join("include").join(&self.package_name),
+            ),
+            ("lib", self.lib_dir().join(&self.package_name)),
+        ] {
+            let key = format!("install_to_{}", subdir);
+
+            if let Some(Value::Array(paths)) = metadata_ros.get(&key) {
+                // Create destination directory
+                fs::create_dir_all(&dest_base)?;
+
+                for path_value in paths {
+                    if let Value::String(rel_path) = path_value {
+                        let src = self.project_root.join(rel_path);
+
+                        if !src.exists() {
+                            return Err(eyre::eyre!(
+                                "[package.metadata.ros.{}] path not found: {} (expected at {})",
+                                key,
+                                rel_path,
+                                src.display()
+                            ));
+                        }
+
+                        // Get the file/directory name to preserve in destination
+                        let name = src.file_name().ok_or_else(|| {
+                            eyre::eyre!("Invalid path in metadata.ros: {}", rel_path)
+                        })?;
+                        let dest = dest_base.join(name);
+
+                        if src.is_dir() {
+                            self.copy_dir_recursive(&src, &dest)?;
+                        } else {
+                            fs::copy(&src, &dest).wrap_err_with(|| {
+                                format!("Failed to copy {} to {}", src.display(), dest.display())
+                            })?;
+                        }
+
+                        if self.verbose {
+                            eprintln!("  Installed [metadata.ros.{}]: {}", key, rel_path);
+                        }
+                    }
+                }
+            }
         }
 
         Ok(())

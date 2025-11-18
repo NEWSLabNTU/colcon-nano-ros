@@ -14,6 +14,8 @@ use std::path::{Path, PathBuf};
 pub struct Package {
     /// Package name (e.g., "std_msgs", "geometry_msgs")
     pub name: String,
+    /// Package version from package.xml
+    pub version: String,
     /// Path to the package's share directory
     pub share_dir: PathBuf,
     /// Interface files found in the package
@@ -46,6 +48,9 @@ impl Package {
             .to_string_lossy()
             .to_string();
 
+        // Parse version from package.xml
+        let version = parse_package_version(&share_dir);
+
         let mut interfaces = InterfaceFiles::default();
 
         // Discover .msg files
@@ -71,6 +76,7 @@ impl Package {
 
         Ok(Package {
             name,
+            version,
             share_dir,
             interfaces,
         })
@@ -158,6 +164,38 @@ fn discover_interface_files(dir: &Path, extension: &str) -> Result<Vec<String>> 
 
     files.sort();
     Ok(files)
+}
+
+/// Parse package version from package.xml
+///
+/// Returns the version string from the <version> tag in package.xml.
+/// If package.xml doesn't exist or version tag is not found, defaults to "0.0.0".
+fn parse_package_version(share_dir: &Path) -> String {
+    let package_xml_path = share_dir.join("package.xml");
+
+    if !package_xml_path.exists() {
+        return "0.0.0".to_string();
+    }
+
+    let xml_content = match std::fs::read_to_string(&package_xml_path) {
+        Ok(content) => content,
+        Err(_) => return "0.0.0".to_string(),
+    };
+
+    // Simple XML parsing for <version> tag
+    for line in xml_content.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("<version>") && trimmed.ends_with("</version>") {
+            let version = trimmed
+                .trim_start_matches("<version>")
+                .trim_end_matches("</version>")
+                .trim();
+            return version.to_string();
+        }
+    }
+
+    // Default to 0.0.0 if version tag not found
+    "0.0.0".to_string()
 }
 
 /// Ament index for discovering ROS 2 packages
@@ -376,5 +414,115 @@ mod tests {
         assert_eq!(index.package_count(), 2);
         assert!(index.find_package("pkg1").is_some());
         assert!(index.find_package("pkg2").is_some());
+    }
+
+    #[test]
+    fn test_parse_version_from_package_xml() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let share_dir = temp_dir.path().join("test_pkg");
+        fs::create_dir_all(&share_dir).unwrap();
+
+        // Create package.xml with version
+        let package_xml = r#"<?xml version="1.0"?>
+<package format="3">
+  <name>test_pkg</name>
+  <version>1.2.3</version>
+  <description>Test package</description>
+</package>
+"#;
+        fs::write(share_dir.join("package.xml"), package_xml).unwrap();
+
+        let version = parse_package_version(&share_dir);
+        assert_eq!(version, "1.2.3");
+    }
+
+    #[test]
+    fn test_parse_version_missing_package_xml() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let share_dir = temp_dir.path().join("test_pkg");
+        fs::create_dir_all(&share_dir).unwrap();
+
+        // No package.xml created
+        let version = parse_package_version(&share_dir);
+        assert_eq!(version, "0.0.0");
+    }
+
+    #[test]
+    fn test_parse_version_missing_version_tag() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let share_dir = temp_dir.path().join("test_pkg");
+        fs::create_dir_all(&share_dir).unwrap();
+
+        // Create package.xml without version tag
+        let package_xml = r#"<?xml version="1.0"?>
+<package format="3">
+  <name>test_pkg</name>
+  <description>Test package</description>
+</package>
+"#;
+        fs::write(share_dir.join("package.xml"), package_xml).unwrap();
+
+        let version = parse_package_version(&share_dir);
+        assert_eq!(version, "0.0.0");
+    }
+
+    #[test]
+    fn test_parse_version_various_formats() {
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        // Test X.Y.Z format
+        let share_dir1 = temp_dir.path().join("pkg1");
+        fs::create_dir_all(&share_dir1).unwrap();
+        fs::write(
+            share_dir1.join("package.xml"),
+            "<?xml version=\"1.0\"?>\n<package>\n  <version>2.3.4</version>\n</package>",
+        )
+        .unwrap();
+        assert_eq!(parse_package_version(&share_dir1), "2.3.4");
+
+        // Test X.Y format
+        let share_dir2 = temp_dir.path().join("pkg2");
+        fs::create_dir_all(&share_dir2).unwrap();
+        fs::write(
+            share_dir2.join("package.xml"),
+            "<?xml version=\"1.0\"?>\n<package>\n  <version>5.6</version>\n</package>",
+        )
+        .unwrap();
+        assert_eq!(parse_package_version(&share_dir2), "5.6");
+
+        // Test X format
+        let share_dir3 = temp_dir.path().join("pkg3");
+        fs::create_dir_all(&share_dir3).unwrap();
+        fs::write(
+            share_dir3.join("package.xml"),
+            "<?xml version=\"1.0\"?>\n<package>\n  <version>7</version>\n</package>",
+        )
+        .unwrap();
+        assert_eq!(parse_package_version(&share_dir3), "7");
+    }
+
+    #[test]
+    fn test_package_includes_version() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let share_dir = temp_dir.path().join("test_msgs");
+
+        // Create package with version
+        let msg_dir = share_dir.join("msg");
+        fs::create_dir_all(&msg_dir).unwrap();
+        fs::write(msg_dir.join("Point.msg"), "float64 x\nfloat64 y\n").unwrap();
+
+        let package_xml = r#"<?xml version="1.0"?>
+<package format="3">
+  <name>test_msgs</name>
+  <version>3.4.5</version>
+  <description>Test messages</description>
+</package>
+"#;
+        fs::write(share_dir.join("package.xml"), package_xml).unwrap();
+
+        let package = Package::from_share_dir(share_dir).unwrap();
+        assert_eq!(package.name, "test_msgs");
+        assert_eq!(package.version, "3.4.5");
+        assert_eq!(package.interfaces.messages.len(), 1);
     }
 }

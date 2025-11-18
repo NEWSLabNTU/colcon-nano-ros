@@ -409,6 +409,7 @@ pub fn generate_package(package: &Package, output_dir: &Path) -> Result<Generate
     generate_cargo_toml(
         &package_output,
         &package.name,
+        &package.version,
         &all_dependencies,
         package_needs_big_array,
     )?;
@@ -657,13 +658,14 @@ fn generate_lib_rs(
 fn generate_cargo_toml(
     output_dir: &Path,
     package_name: &str,
+    package_version: &str,
     dependencies: &HashSet<String>,
     needs_big_array: bool,
 ) -> Result<()> {
     let mut cargo_toml = format!(
         r#"[package]
 name = "{}"
-version = "{}.0"
+version = "{}"
 edition = "2021"
 
 # Standalone package (not part of parent workspace)
@@ -674,7 +676,7 @@ edition = "2021"
 rosidl_runtime_rs = "{}"
 serde = {{ version = "1.0", features = ["derive"], optional = true }}
 "#,
-        package_name, ROSIDL_RUNTIME_RS_VERSION, ROSIDL_RUNTIME_RS_VERSION
+        package_name, package_version, ROSIDL_RUNTIME_RS_VERSION
     );
 
     // Add serde-big-array if needed for arrays > 32 elements
@@ -846,10 +848,11 @@ mod tests {
     fn test_cargo_toml_generation() {
         let temp_dir = tempfile::tempdir().unwrap();
         let deps = HashSet::new();
-        generate_cargo_toml(temp_dir.path(), "test_pkg", &deps, false).unwrap();
+        generate_cargo_toml(temp_dir.path(), "test_pkg", "0.1.0", &deps, false).unwrap();
 
         let cargo_toml = std::fs::read_to_string(temp_dir.path().join("Cargo.toml")).unwrap();
         assert!(cargo_toml.contains("name = \"test_pkg\""));
+        assert!(cargo_toml.contains("version = \"0.1.0\""));
         assert!(cargo_toml.contains("serde"));
         assert!(!cargo_toml.contains("serde-big-array"));
     }
@@ -861,10 +864,11 @@ mod tests {
         deps.insert("std_msgs".to_string());
         deps.insert("geometry_msgs".to_string());
 
-        generate_cargo_toml(temp_dir.path(), "test_pkg", &deps, false).unwrap();
+        generate_cargo_toml(temp_dir.path(), "test_pkg", "1.2.3", &deps, false).unwrap();
 
         let cargo_toml = std::fs::read_to_string(temp_dir.path().join("Cargo.toml")).unwrap();
         assert!(cargo_toml.contains("name = \"test_pkg\""));
+        assert!(cargo_toml.contains("version = \"1.2.3\""));
         assert!(cargo_toml.contains("serde"));
         assert!(cargo_toml.contains("std_msgs = { path = \"../std_msgs\" }"));
         assert!(cargo_toml.contains("geometry_msgs = { path = \"../geometry_msgs\" }"));
@@ -874,10 +878,11 @@ mod tests {
     fn test_cargo_toml_with_big_array() {
         let temp_dir = tempfile::tempdir().unwrap();
         let deps = HashSet::new();
-        generate_cargo_toml(temp_dir.path(), "test_pkg", &deps, true).unwrap();
+        generate_cargo_toml(temp_dir.path(), "test_pkg", "2.0.0", &deps, true).unwrap();
 
         let cargo_toml = std::fs::read_to_string(temp_dir.path().join("Cargo.toml")).unwrap();
         assert!(cargo_toml.contains("name = \"test_pkg\""));
+        assert!(cargo_toml.contains("version = \"2.0.0\""));
         assert!(cargo_toml.contains("serde"));
         assert!(cargo_toml.contains("serde-big-array"));
     }
@@ -905,5 +910,64 @@ mod tests {
 
         let result = generate_package(&package, &output_dir);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_generated_cargo_toml_uses_package_version() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let share_dir = temp_dir.path().join("versioned_msgs");
+
+        // Create message file
+        let msg_dir = share_dir.join("msg");
+        fs::create_dir_all(&msg_dir).unwrap();
+        fs::write(msg_dir.join("Point.msg"), "float64 x\nfloat64 y\n").unwrap();
+
+        // Create package.xml with specific version
+        let package_xml = r#"<?xml version="1.0"?>
+<package format="3">
+  <name>versioned_msgs</name>
+  <version>4.5.6</version>
+  <description>Test messages with version</description>
+</package>
+"#;
+        fs::write(share_dir.join("package.xml"), package_xml).unwrap();
+
+        let package = Package::from_share_dir(share_dir).unwrap();
+        let output_dir = temp_dir.path().join("output");
+
+        let result = generate_package(&package, &output_dir);
+        assert!(result.is_ok());
+
+        // Check that generated Cargo.toml has correct version
+        let cargo_toml_path = output_dir.join("versioned_msgs").join("Cargo.toml");
+        let cargo_toml = fs::read_to_string(cargo_toml_path).unwrap();
+        assert!(cargo_toml.contains("name = \"versioned_msgs\""));
+        assert!(cargo_toml.contains("version = \"4.5.6\""));
+        // Should NOT contain the hardcoded ROSIDL_RUNTIME_RS_VERSION as the package version
+        assert!(!cargo_toml.contains("version = \"0.5.0\""));
+        assert!(!cargo_toml.contains("version = \"0.5\""));
+    }
+
+    #[test]
+    fn test_generated_cargo_toml_defaults_to_0_0_0_without_package_xml() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let share_dir = temp_dir.path().join("no_version_msgs");
+
+        // Create message file without package.xml
+        let msg_dir = share_dir.join("msg");
+        fs::create_dir_all(&msg_dir).unwrap();
+        fs::write(msg_dir.join("Point.msg"), "float64 x\nfloat64 y\n").unwrap();
+
+        let package = Package::from_share_dir(share_dir).unwrap();
+        let output_dir = temp_dir.path().join("output");
+
+        let result = generate_package(&package, &output_dir);
+        assert!(result.is_ok());
+
+        // Check that generated Cargo.toml defaults to 0.0.0
+        let cargo_toml_path = output_dir.join("no_version_msgs").join("Cargo.toml");
+        let cargo_toml = fs::read_to_string(cargo_toml_path).unwrap();
+        assert!(cargo_toml.contains("name = \"no_version_msgs\""));
+        assert!(cargo_toml.contains("version = \"0.0.0\""));
     }
 }

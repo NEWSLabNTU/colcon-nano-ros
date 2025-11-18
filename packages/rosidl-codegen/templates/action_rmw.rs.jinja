@@ -6,19 +6,25 @@
 use serde::{Deserialize, Serialize};
 
 // Goal constants
-{% for constant in goal_constants %}
-pub const {{ constant.name }}: {{ constant.rust_type }} = {{ constant.value }};
-{% endfor %}
+pub mod goal_constants {
+    {% for constant in goal_constants %}
+    pub const {{ constant.name }}: {{ constant.rust_type }} = {{ constant.value }};
+    {% endfor %}
+}
 
 // Result constants
-{% for constant in result_constants %}
-pub const {{ constant.name }}: {{ constant.rust_type }} = {{ constant.value }};
-{% endfor %}
+pub mod result_constants {
+    {% for constant in result_constants %}
+    pub const {{ constant.name }}: {{ constant.rust_type }} = {{ constant.value }};
+    {% endfor %}
+}
 
 // Feedback constants
-{% for constant in feedback_constants %}
-pub const {{ constant.name }}: {{ constant.rust_type }} = {{ constant.value }};
-{% endfor %}
+pub mod feedback_constants {
+    {% for constant in feedback_constants %}
+    pub const {{ constant.name }}: {{ constant.rust_type }} = {{ constant.value }};
+    {% endfor %}
+}
 
 // FFI bindings to C libraries for Goal
 #[link(name = "{{ package_name }}__rosidl_typesupport_c")]

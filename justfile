@@ -77,6 +77,34 @@ check-python:
     cd packages/colcon-cargo-ros2
     ruff check colcon_cargo_ros2/ test/
 
+# === VERSION MANAGEMENT ===
+
+# Bump version in pyproject.toml and Cargo.toml
+bump-version VERSION:
+    #!/usr/bin/env bash
+    set -e
+    echo "Bumping version to {{VERSION}}..."
+
+    # Update pyproject.toml
+    sed -i 's/^version = ".*"/version = "{{VERSION}}"/' packages/colcon-cargo-ros2/pyproject.toml
+    echo "✓ Updated packages/colcon-cargo-ros2/pyproject.toml"
+
+    # Update Cargo.toml
+    sed -i 's/^version = ".*"/version = "{{VERSION}}"/' packages/colcon-cargo-ros2/Cargo.toml
+    echo "✓ Updated packages/colcon-cargo-ros2/Cargo.toml"
+
+    echo ""
+    echo "Version bumped to {{VERSION}}"
+    echo "Updated files:"
+    echo "  - packages/colcon-cargo-ros2/pyproject.toml"
+    echo "  - packages/colcon-cargo-ros2/Cargo.toml"
+    echo ""
+    echo "Next steps:"
+    echo "  1. Review changes: git diff"
+    echo "  2. Commit: git add -u && git commit -m 'Bump version to {{VERSION}}'"
+    echo "  3. Tag: git tag v{{VERSION}}"
+    echo "  4. Build: just build-python"
+
 # === PUBLISHING COMMANDS ===
 
 # Check wheel before publishing

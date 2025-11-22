@@ -56,6 +56,8 @@ pub struct InstallConfig {
     pub project_root: PathBuf,
     /// Install base directory (install/<package>/)
     pub install_base: PathBuf,
+    /// Workspace build directory (where ros2_cargo_config.toml is located)
+    pub build_base: PathBuf,
     /// Build profile: "debug" or "release"
     pub profile: String,
     /// Enable verbose output
@@ -172,30 +174,19 @@ pub fn install_to_ament(config: InstallConfig) -> Result<()> {
     // Pass --config flag to use workspace-level config
     let mut metadata_cmd = MetadataCommand::new();
 
-    // Look for ros2_cargo_config.toml in workspace build directory
-    // Walk up from project_root to find build/ directory
-    let mut search_dir = Some(config.project_root.parent());
-    let mut config_file_path = None;
-    while let Some(Some(dir)) = search_dir {
-        // Check for build/ros2_cargo_config.toml
-        let potential_build = dir.join("build");
-        if potential_build.exists() {
-            let config_file = potential_build.join("ros2_cargo_config.toml");
-            if config_file.exists() {
-                config_file_path = Some(config_file);
-                break;
-            }
-        }
-        search_dir = Some(dir.parent());
+    // Use build_base provided by colcon to locate config file
+    // This path is authoritative and comes from colcon's own workspace structure
+    let config_file = config.build_base.join("ros2_cargo_config.toml");
+
+    if config.verbose {
+        eprintln!("Using config file: {}", config_file.display());
     }
 
-    // Add --config flag if found
-    if let Some(config_path) = config_file_path {
-        metadata_cmd.other_options(vec![
-            "--config".to_string(),
-            config_path.display().to_string(),
-        ]);
-    }
+    // Always add --config flag (config file should exist from binding generation)
+    metadata_cmd.other_options(vec![
+        "--config".to_string(),
+        config_file.display().to_string(),
+    ]);
 
     let metadata = metadata_cmd
         .exec()

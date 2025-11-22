@@ -57,6 +57,8 @@ struct InstallConfig {
     #[pyo3(get, set)]
     install_base: String,
     #[pyo3(get, set)]
+    build_base: String,
+    #[pyo3(get, set)]
     profile: String,
     #[pyo3(get, set)]
     verbose: bool,
@@ -65,11 +67,12 @@ struct InstallConfig {
 #[pymethods]
 impl InstallConfig {
     #[new]
-    #[pyo3(signature = (project_root, install_base, profile="debug".to_string(), verbose=false))]
-    fn new(project_root: String, install_base: String, profile: String, verbose: bool) -> Self {
+    #[pyo3(signature = (project_root, install_base, build_base, profile="debug".to_string(), verbose=false))]
+    fn new(project_root: String, install_base: String, build_base: String, profile: String, verbose: bool) -> Self {
         Self {
             project_root,
             install_base,
+            build_base,
             profile,
             verbose,
         }
@@ -77,8 +80,8 @@ impl InstallConfig {
 
     fn __repr__(&self) -> String {
         format!(
-            "InstallConfig(project_root='{}', install_base='{}', profile='{}', verbose={})",
-            self.project_root, self.install_base, self.profile, self.verbose
+            "InstallConfig(project_root='{}', install_base='{}', build_base='{}', profile='{}', verbose={})",
+            self.project_root, self.install_base, self.build_base, self.profile, self.verbose
         )
     }
 }
@@ -136,6 +139,7 @@ fn install_to_ament(config: InstallConfig) -> PyResult<()> {
     let rust_config = cargo_ros2::InstallConfig {
         project_root: PathBuf::from(config.project_root),
         install_base: PathBuf::from(config.install_base),
+        build_base: PathBuf::from(config.build_base),
         profile: config.profile,
         verbose: config.verbose,
     };

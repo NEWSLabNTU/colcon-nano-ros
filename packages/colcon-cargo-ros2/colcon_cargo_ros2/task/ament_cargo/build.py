@@ -240,6 +240,7 @@ class AmentCargoBuildTask(TaskExtensionPoint):
             config = cargo_ros2_py.InstallConfig(
                 project_root=str(project_root),
                 install_base=str(args.install_base),
+                build_base=str(self._build_base),
                 profile=profile,
                 verbose=verbose,
             )

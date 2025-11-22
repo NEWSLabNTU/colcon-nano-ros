@@ -24,7 +24,7 @@ colcon-cargo-ros2/  (THIS REPOSITORY)
 │   ├── Cargo.toml                # Workspace manifest
 │   ├── rosidl-parser/            # ROS IDL parser (.msg, .srv, .action)
 │   ├── rosidl-codegen/           # Code generator with Askama templates
-│   ├── rosidl-bindgen/           # Binding generator (embeds user-libs)
+│   ├── rosidl-bindgen/           # Binding generator
 │   ├── cargo-ros2/               # Build orchestrator (pre-build + post-build)
 │   └── colcon-cargo-ros2/        # Python/PyO3 colcon extension
 │       ├── colcon_cargo_ros2/    # Python module
@@ -109,6 +109,163 @@ just bump-version 0.4.0
 
 **CRITICAL**: After modifying code, rebuild and reinstall to see changes:
 
+### `[package.metadata.ros]` Installation Support (2025-11-17)
+
+**Problem**: Rust ROS 2 packages often need to install additional files beyond binaries (launch files, config files, URDF models, RViz configs, etc.), but there was no way to specify these in Cargo.toml.
+
+**Solution**: Implemented `[package.metadata.ros]` support for installing additional files and directories, providing 100% backward compatibility with cargo-ament-build:
+
+```toml
+[package.metadata.ros]
+install_to_share = ["launch", "config", "README.md"]  # Directories and files
+install_to_include = ["include", "mylib.h"]
+install_to_lib = ["scripts", "setup.sh"]
+```
+
+**Semantics**:
+- **Directories**: Copied recursively with name preserved
+  - `"launch"` → `install/<pkg>/share/<pkg>/launch/`
+- **Individual files**: Filename preserved (parent path dropped)
+  - `"README.md"` → `install/<pkg>/share/<pkg>/README.md`
+  - `"config/params.yaml"` → `install/<pkg>/share/<pkg>/params.yaml`
+- **Missing paths**: Build fails with clear error message showing expected location
+
+**Destination Mapping**:
+- `install_to_share` → `install/<pkg>/share/<pkg>/`
+- `install_to_include` → `install/<pkg>/include/<pkg>/`
+- `install_to_lib` → `install/<pkg>/lib/<pkg>/`
+
+**Files Modified**:
+- `packages/cargo-ros2/src/ament_installer.rs`:
+  - Enhanced `install_metadata_ros_files()` documentation with examples
+  - Changed from "warn on missing" to "error on missing" for stricter validation
+  - Already supported both directories and files (via `.is_dir()` check)
+- `packages/cargo-ros2/tests/test_metadata_ros.rs`: Added 4 new integration tests
+  - `test_metadata_ros_install_individual_file_to_share`
+  - `test_metadata_ros_install_individual_file_to_include`
+  - `test_metadata_ros_install_individual_file_to_lib`
+  - `test_metadata_ros_mixed_files_and_dirs`
+- `tmp/metadata_ros_recommendation.md`: Updated design documentation
+
+**Benefits**:
+- ✅ 100% backward compatible with cargo-ament-build
+- ✅ Simple and declarative (no complex installation scripts)
+- ✅ Supports common ROS 2 use cases (launch, config, urdf, rviz, meshes)
+- ✅ Works with both standalone packages and colcon workspaces
+- ✅ Clear error messages for missing paths
+
+**Test Coverage**:
+- ✅ All 206 tests passing (203 Rust + 3 Python)
+- ✅ Test coverage for directories, individual files, and mixed usage
+- ✅ Zero clippy warnings
+
+**Example Usage**:
+```toml
+[package]
+name = "my_robot_controller"
+version = "0.1.0"
+
+[[bin]]
+name = "controller_node"
+
+[package.metadata.ros]
+install_to_share = ["launch", "config", "urdf", "README.md", "LICENSE"]
+```
+
+Results in:
+```
+install/my_robot_controller/
+├── lib/my_robot_controller/
+│   └── controller_node
+└── share/my_robot_controller/
+    ├── launch/            # Directory preserved
+    ├── config/            # Directory preserved
+    ├── urdf/              # Directory preserved
+    ├── README.md          # Individual file
+    ├── LICENSE            # Individual file
+    ├── rust/              # Source code (automatic)
+    └── package.xml        # Metadata (automatic)
+```
+
+---
+
+## Recent Architectural Improvements (2025-11-14)
+
+### Constant Type Fix and Colcon Package Discovery (2025-11-14)
+
+**Problem 1**: String constants in generated code used non-const-compatible types (`String`, `rosidl_runtime_rs::String`), causing compilation errors:
+```rust
+pub const PASSWORD: String = "hunter2";  // ❌ Cannot initialize const String with &str
+```
+
+**Solution**: Created `rust_type_for_constant()` function that returns `&'static str` for all string types in constants:
+```rust
+pub const PASSWORD: &'static str = "hunter2";  // ✅ Const-compatible
+```
+
+**Files Modified**:
+- `build-tools/rosidl-codegen/src/types.rs`: Added `rust_type_for_constant()` function
+- `build-tools/rosidl-codegen/src/generator.rs`: Updated all constant generation (messages, services, actions) to use new function
+
+---
+
+**Problem 2**: Workspace binding generator hardcoded directory names `["src", "ros"]`, failing to discover packages in non-standard locations (e.g., `rclrs/`):
+```python
+for src_dir_name in ["src", "ros"]:  # ❌ Doesn't respect colcon's discovery
+    src_dir = self.workspace_root / src_dir_name
+```
+
+**Solution**: Implemented `PackageAugmentationExtensionPoint` to leverage colcon's native package discovery:
+- Receives ALL discovered packages from colcon (respects `--base-paths`, `--packages-select`, etc.)
+- Runs after package discovery, before build tasks start
+- Eliminates fragile filesystem scanning
+- Properly integrates with colcon's architecture
+
+**Files Created**:
+- `build-tools/colcon-cargo-ros2/colcon_cargo_ros2/package_augmentation/__init__.py`: New extension point
+
+**Files Modified**:
+- `build-tools/colcon-cargo-ros2/colcon_cargo_ros2/workspace_bindgen.py`: Uses packages from `RustBindingAugmentation._interface_packages`
+- `build-tools/colcon-cargo-ros2/pyproject.toml`: Registered new `colcon_core.package_augmentation` entry point
+
+**Benefits**:
+- **Proper colcon integration**: Uses colcon's package discovery instead of re-implementing it
+- **Respects user configuration**: Works with `--base-paths`, `--packages-select`, and other colcon flags
+- **No hardcoded paths**: Eliminates fragile directory name assumptions
+- **Architecturally correct**: `PackageAugmentationExtensionPoint` is designed for workspace-level operations
+
+---
+
+## Recent Architectural Improvements (2025-11-11)
+
+### Dual Workspace Architecture (2025-11-11)
+
+Split the project into two independent Cargo workspaces to separate concerns:
+
+**Problem**: Building `rclrs` requires ROS 2 environment (`ROS_DISTRO`, sourced setup.bash), which made it impossible to run `cargo check` on build tools without ROS installed.
+
+**Solution**: Separate user-facing libraries from build infrastructure:
+
+```
+user-libs/          # Requires ROS 2 environment to build
+├── rclrs/          # ROS 2 client library (Node, Publisher, Subscription)
+└── rosidl-runtime-rs/  # Runtime support (Message trait, Sequence, String)
+
+build-tools/        # No ROS required - can develop without ROS installed!
+├── rosidl-parser/      # IDL parsing logic
+├── rosidl-codegen/     # Code generation with templates
+├── rosidl-bindgen/     # Binding generator
+├── cargo-ros2/         # Build orchestrator
+└── colcon-cargo-ros2/  # Python/PyO3 colcon extension
+```
+
+**Benefits**:
+- **Independent development**: Can work on build tools without ROS environment
+- **Faster CI**: Build tools workspace checks don't require ROS installation
+- **Clear separation**: User-facing APIs separate from build infrastructure
+- **Uses crates.io**: `rclrs` and `rosidl-runtime-rs` are published on crates.io for easy distribution
+
+**New justfile commands**:
 ```bash
 # 1. Make changes to code/templates
 

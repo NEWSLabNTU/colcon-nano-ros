@@ -68,8 +68,8 @@ class AmentCargoBuildTask(TaskExtensionPoint):
         args = self.context.args
         cmd = self._build_cmd(args.cargo_args if hasattr(args, "cargo_args") else [])
 
-        # Execute cargo build
-        result = await run(self.context, cmd, cwd=self.context.pkg.path, env=None)
+        # Execute cargo build from workspace root (so relative paths in config work)
+        result = await run(self.context, cmd, cwd=self._workspace_root, env=None)
         if result and result.returncode != 0:
             return result.returncode
 
@@ -102,7 +102,8 @@ class AmentCargoBuildTask(TaskExtensionPoint):
         build_base = Path(os.path.abspath(os.path.join(args.build_base, "..")))
         install_base = Path(args.install_base).parent  # install/ directory
 
-        # Store build_base for use in _build_cmd
+        # Store paths for use in build
+        self._workspace_root = workspace_root
         self._build_base = build_base
 
         # Generate workspace-level bindings
@@ -157,8 +158,14 @@ class AmentCargoBuildTask(TaskExtensionPoint):
 
         Since bindings are generated at workspace-level, we pass --config flag
         to use the single config file in build/ros2_cargo_config.toml.
+        We also use --manifest-path since cargo is invoked from workspace root.
         """
         cmd = ["cargo", "build"]
+
+        # Add --manifest-path to specify which package to build
+        # (since we're running cargo from workspace root, not package dir)
+        manifest_path = Path(self.context.pkg.path) / "Cargo.toml"
+        cmd.extend(["--manifest-path", str(manifest_path)])
 
         # Add --config flag to use workspace-level config file
         if self._build_base:

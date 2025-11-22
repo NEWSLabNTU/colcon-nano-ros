@@ -8,7 +8,7 @@ this module generates ALL bindings once before any packages are built.
 
 Architecture:
 1. Discover all ROS package dependencies in the workspace
-2. Generate all bindings to build/ros2_bindings/
+2. Generate all bindings to build/<pkg>/rosidl_cargo/
 3. Write single Cargo config file in build/ros2_cargo_config.toml
 4. Individual packages run `cargo build --config build/ros2_cargo_config.toml`
 """
@@ -40,7 +40,6 @@ class WorkspaceBindingGenerator:
         self.build_base = build_base
         self.install_base = install_base
         self.args = args
-        self.bindings_dir = build_base / "ros2_bindings"
         self.lock_file = build_base / ".colcon" / "bindgen.lock"
 
     def should_generate(self) -> bool:
@@ -144,13 +143,12 @@ class WorkspaceBindingGenerator:
     def _generate_bindings(self, ros_packages: Dict[str, Path], verbose: bool):
         """Generate Rust bindings for all ROS packages.
 
+        Each package's bindings are generated to build/<pkg_name>/rosidl_cargo/
+
         Args:
             ros_packages: Dict mapping package names to share/ directories
             verbose: Enable verbose output
         """
-        # Create bindings output directory
-        self.bindings_dir.mkdir(parents=True, exist_ok=True)
-
         # Generate bindings for each package that has interfaces
         for pkg_name, pkg_share in ros_packages.items():
             # Check if package has interfaces (msg/, srv/, action/ directories)
@@ -165,19 +163,21 @@ class WorkspaceBindingGenerator:
             if not has_interfaces:
                 continue
 
+            # Output directory: build/<pkg_name>/rosidl_cargo/
+            pkg_build_dir = self.build_base / pkg_name / "rosidl_cargo"
+
             # Check if bindings already exist and are up-to-date
-            binding_dir = self.bindings_dir / pkg_name / pkg_name
+            # Generated structure is: build/<pkg_name>/rosidl_cargo/<pkg_name>/Cargo.toml
+            binding_dir = pkg_build_dir / pkg_name
             if binding_dir.exists():
                 # TODO: Add checksum-based cache validation
                 logger.debug(f"Bindings already exist for {pkg_name}")
                 continue
 
             # Generate bindings using cargo ros2 bindgen
-            # Pass workspace-level bindings_dir, not package-specific dir
-            # (generate_package will create the package subdirectory)
             logger.info(f"Generating bindings for {pkg_name}")
             try:
-                self._run_bindgen(pkg_name, pkg_share, self.bindings_dir, verbose)
+                self._run_bindgen(pkg_name, pkg_share, pkg_build_dir, verbose)
                 # Post-process Cargo.toml to remove path dependencies
                 self._fixup_cargo_toml(pkg_name, binding_dir)
             except RuntimeError as e:
@@ -270,9 +270,10 @@ class WorkspaceBindingGenerator:
         logger.debug(f"Fixed up Cargo.toml for {pkg_name}")
 
     def _write_cargo_config_file(self, ros_packages: Dict[str, Path]):
-        """Write single Cargo config file in build/ directory.
+        """Write single Cargo config file in build/ directory with relative paths.
 
         This config file will be passed to cargo via --config flag.
+        Paths are relative to the workspace root for portability.
 
         Args:
             ros_packages: Dict of all ROS packages (for building patch entries)
@@ -283,26 +284,20 @@ class WorkspaceBindingGenerator:
         patches = []
 
         for pkg_name in sorted(ros_packages.keys()):
-            binding_dir = self.bindings_dir / pkg_name
-            if binding_dir.exists():
-                # rosidl-bindgen creates nested structure: pkg_name/pkg_name/Cargo.toml
-                # Check if the nested package directory exists
-                nested_pkg_dir = binding_dir / pkg_name
+            # Check per-package location: build/<pkg_name>/rosidl_cargo/
+            pkg_build_dir = self.build_base / pkg_name / "rosidl_cargo"
+
+            if pkg_build_dir.exists():
+                # rosidl-bindgen creates nested structure: <pkg_name>/<pkg_name>/Cargo.toml
+                nested_pkg_dir = pkg_build_dir / pkg_name
                 if nested_pkg_dir.exists() and (nested_pkg_dir / "Cargo.toml").exists():
-                    # Use the nested package directory
-                    patches.append(f'{pkg_name} = {{ path = "{nested_pkg_dir.absolute()}" }}')
-                elif (binding_dir / "Cargo.toml").exists():
+                    # Use relative path from workspace root for portability
+                    rel_path = nested_pkg_dir.relative_to(self.workspace_root)
+                    patches.append(f'{pkg_name} = {{ path = "{rel_path}" }}')
+                elif (pkg_build_dir / "Cargo.toml").exists():
                     # Use the top-level directory if Cargo.toml is there
-                    patches.append(f'{pkg_name} = {{ path = "{binding_dir.absolute()}" }}')
-
-        # Add patches for embedded runtime libraries
-        runtime_rs_dir = self.bindings_dir / "rosidl_runtime_rs"
-        if runtime_rs_dir.exists() and (runtime_rs_dir / "Cargo.toml").exists():
-            patches.append(f'rosidl_runtime_rs = {{ path = "{runtime_rs_dir.absolute()}" }}')
-
-        rclrs_dir = self.bindings_dir / "rclrs"
-        if rclrs_dir.exists() and (rclrs_dir / "Cargo.toml").exists():
-            patches.append(f'rclrs = {{ path = "{rclrs_dir.absolute()}" }}')
+                    rel_path = pkg_build_dir.relative_to(self.workspace_root)
+                    patches.append(f'{pkg_name} = {{ path = "{rel_path}" }}')
 
         # Build [build] section with rustflags for linker search paths
         # This is critical for finding workspace-local ROS package libraries
@@ -319,6 +314,7 @@ class WorkspaceBindingGenerator:
 
         # Add system ROS library paths from AMENT_PREFIX_PATH
         import os
+
         if "AMENT_PREFIX_PATH" in os.environ:
             for prefix in os.environ["AMENT_PREFIX_PATH"].split(":"):
                 lib_path = Path(prefix) / "lib"
@@ -337,7 +333,7 @@ class WorkspaceBindingGenerator:
             content += "\n]\n"
 
         config_file.write_text(content)
-        logger.info(f"Wrote Cargo config with {len(patches)} patches and {len(rustflags)} linker paths to {config_file}")
+        logger.info(f"Wrote Cargo config with {len(patches)} patches to {config_file}")
 
 
 def generate_workspace_bindings(

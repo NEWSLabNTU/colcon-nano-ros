@@ -178,19 +178,25 @@ Bindings will be generated automatically during the build.
 When building a colcon workspace, `colcon-cargo-ros2`:
 
 1. **Discovers Packages**: Finds all ROS dependencies via ament index
-2. **Generates Bindings**: Creates Rust bindings in `build/ros2_bindings/`
-3. **Configures Cargo**: Updates each package's `.cargo/config.toml` with patches
-4. **Builds**: Runs `cargo build` with workspace-level config
+2. **Generates Bindings**: Creates Rust bindings in `build/<pkg>/rosidl_cargo/` for each interface package
+3. **Creates Config File**: Writes `build/ros2_cargo_config.toml` with relative paths to all bindings
+4. **Builds**: Runs `cargo build --config build/ros2_cargo_config.toml`
 5. **Installs**: Copies binaries and creates ament markers
 
 **Workspace Structure**:
 ```
 ros2_ws/
 ├── build/
-│   └── ros2_bindings/          # Shared bindings (generated once)
-│       ├── std_msgs/
-│       ├── geometry_msgs/
-│       └── my_interfaces/
+│   ├── ros2_cargo_config.toml  # Workspace config with relative paths
+│   ├── std_msgs/
+│   │   └── rosidl_cargo/       # Rust bindings for std_msgs
+│   │       └── std_msgs/
+│   ├── geometry_msgs/
+│   │   └── rosidl_cargo/       # Rust bindings for geometry_msgs
+│   │       └── geometry_msgs/
+│   └── my_interfaces/
+│       └── rosidl_cargo/       # Rust bindings for custom interfaces
+│           └── my_interfaces/
 ├── install/
 │   ├── my_robot_node/
 │   │   ├── lib/my_robot_node/  # Binaries
@@ -199,17 +205,127 @@ ros2_ws/
 └── src/
     ├── my_robot_node/
     │   ├── Cargo.toml
-    │   ├── package.xml
-    │   └── .cargo/config.toml  # Auto-generated patches
+    │   └── package.xml
     └── my_interfaces/
 ```
 
 ### Benefits
 
-- **No Duplication**: `std_msgs` generated once, not per-package
+- **Per-Package Organization**: Bindings follow ROS conventions (like `rosidl_cmake/`)
 - **Fast Builds**: Intelligent caching skips regeneration when possible
 - **Clean Workspace**: `colcon clean` removes all generated code
-- **Standard Cargo**: Normal Cargo workflows work as expected
+- **Explicit Paths**: Config file uses absolute paths for reliable resolution
+
+## Developer Workflow
+
+### Using cargo check/clippy/test Outside colcon
+
+When working on Rust packages, you can use standard Cargo commands directly. However, you need to pass the `--config` flag to use the workspace-generated bindings:
+
+```bash
+cd ~/ros2_ws/src/my_robot_node
+
+# Check your code
+cargo check --config ../../build/ros2_cargo_config.toml
+
+# Run clippy linter
+cargo clippy --config ../../build/ros2_cargo_config.toml
+
+# Run tests
+cargo test --config ../../build/ros2_cargo_config.toml
+
+# Build directly (not recommended - use colcon build instead)
+cargo build --config ../../build/ros2_cargo_config.toml
+```
+
+**Tip**: Create shell aliases to avoid typing the full --config path:
+
+```bash
+# Add to ~/.bashrc or ~/.zshrc
+alias cargoros2='cargo --config ../../build/ros2_cargo_config.toml'
+
+# Usage
+cd ~/ros2_ws/src/my_robot_node
+cargoros2 check
+cargoros2 clippy
+cargoros2 test
+```
+
+### IDE Integration (rust-analyzer)
+
+For full IDE support (completions, error checking, goto definition), configure rust-analyzer to use the workspace config file.
+
+#### VSCode
+
+Create or update `.vscode/settings.json` in your workspace root:
+
+```json
+{
+  "rust-analyzer.cargo.extraArgs": [
+    "--config",
+    "build/ros2_cargo_config.toml"
+  ]
+}
+```
+
+#### Neovim (nvim-lspconfig)
+
+```lua
+require('lspconfig').rust_analyzer.setup({
+  settings = {
+    ['rust-analyzer'] = {
+      cargo = {
+        extraArgs = { '--config', 'build/ros2_cargo_config.toml' }
+      }
+    }
+  }
+})
+```
+
+#### Emacs (lsp-mode)
+
+```elisp
+(setq lsp-rust-analyzer-cargo-extra-args
+      '("--config" "build/ros2_cargo_config.toml"))
+```
+
+#### Helix
+
+Add to your `languages.toml`:
+
+```toml
+[[language]]
+name = "rust"
+[language.config.cargo]
+extraArgs = ["--config", "build/ros2_cargo_config.toml"]
+```
+
+### Optional: Cargo Alias Configuration
+
+For even better ergonomics, you can manually add cargo aliases to your workspace's `.cargo/config.toml` file (at workspace root, not in individual packages):
+
+```toml
+# Create: ~/ros2_ws/.cargo/config.toml
+[alias]
+ros2-check = ["check", "--config", "build/ros2_cargo_config.toml"]
+ros2-clippy = ["clippy", "--config", "build/ros2_cargo_config.toml"]
+ros2-test = ["test", "--config", "build/ros2_cargo_config.toml"]
+ros2-build = ["build", "--config", "build/ros2_cargo_config.toml"]
+
+# Short forms
+r2c = ["check", "--config", "build/ros2_cargo_config.toml"]
+r2b = ["build", "--config", "build/ros2_cargo_config.toml"]
+```
+
+Then use them like:
+
+```bash
+cd ~/ros2_ws/src/my_robot_node
+cargo ros2-check   # Full name
+cargo r2c          # Short form
+```
+
+**Note**: This file is safe to commit to version control since it only contains aliases with relative paths.
 
 ## Troubleshooting
 

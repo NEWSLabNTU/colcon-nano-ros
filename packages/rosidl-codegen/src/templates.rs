@@ -55,32 +55,49 @@ pub struct RmwField {
     pub default_value: String,
 }
 
+/// Exhaustive enum representing all possible ROS 2 IDL field types
+/// This ensures compile-time checking that all cases are handled in templates
+#[derive(Debug, Clone, PartialEq)]
+pub enum FieldKind {
+    // Scalar types (single values)
+    Primitive,
+    UnboundedString,
+    BoundedString,
+    UnboundedWString,
+    BoundedWString,
+    NestedMessage,
+
+    // Array types (fixed-size)
+    PrimitiveArray,
+    UnboundedStringArray,
+    BoundedStringArray,
+    UnboundedWStringArray,
+    BoundedWStringArray,
+    NestedMessageArray,
+    LargeArray, // Arrays > 32 elements (no Copy/Clone trait)
+
+    // Bounded sequences (max_size specified: T[<=N])
+    BoundedPrimitiveSequence,
+    BoundedUnboundedStringSequence,  // string[<=N]
+    BoundedBoundedStringSequence,    // string<=M[<=N]
+    BoundedUnboundedWStringSequence, // wstring[<=N]
+    BoundedBoundedWStringSequence,   // wstring<=M[<=N]
+    BoundedNestedMessageSequence,
+
+    // Unbounded sequences (no max_size: T[])
+    UnboundedPrimitiveSequence,
+    UnboundedUnboundedStringSequence,  // string[]
+    UnboundedBoundedStringSequence,    // string<=M[]
+    UnboundedUnboundedWStringSequence, // wstring[]
+    UnboundedBoundedWStringSequence,   // wstring<=M[]
+    UnboundedNestedMessageSequence,
+}
+
 pub struct IdiomaticField {
     pub name: String,
     pub rust_type: String,
     pub default_value: String,
-    pub is_sequence: bool,
-    pub is_primitive: bool,
-    pub is_primitive_sequence: bool,
-    pub is_string_sequence: bool,
-    pub is_unbounded_string_sequence: bool,
-    pub is_bounded_string_sequence: bool,
-    pub is_unbounded_wstring_sequence: bool,
-    pub is_bounded_wstring_sequence: bool,
-    pub is_array: bool,
-    pub is_large_array: bool,
-    pub is_primitive_array: bool,
-    pub is_string_array: bool,
-    pub is_unbounded_string_array: bool,
-    pub is_bounded_string_array: bool,
-    pub is_unbounded_wstring_array: bool,
-    pub is_bounded_wstring_array: bool,
-    pub is_nested_array: bool,
-    pub is_bounded_sequence: bool,
-    pub is_string: bool,
-    pub is_bounded_string: bool,
-    pub is_wstring: bool,
-    pub is_bounded_wstring: bool,
+    pub kind: FieldKind,
 }
 
 pub struct MessageConstant {

@@ -44,46 +44,58 @@ pub mod goal {
         fn from(rmw: crate::action::rmw::{{ action_name }}Goal) -> Self {
             Self {
                 {% for field in goal_fields %}
-                {% if field.is_wstring %}
-                // rosidl_runtime_rs::WString → String
-                {{ field.name }}: rmw.{{ field.name }}.to_string(),
-                {% else if field.is_string %}
-                // rosidl_runtime_rs::String → String (use rosidl_runtime_rs 0.5 API)
-                {{ field.name }}: rmw.{{ field.name }}.to_string(),
-                {% else if field.is_primitive_sequence %}
-                // Sequence<primitive> → Vec<primitive> (use rosidl_runtime_rs 0.5 API)
-                {{ field.name }}: rmw.{{ field.name }}.as_slice().to_vec(),
-                {% else if field.is_string_sequence %}
-                // Sequence<rosidl_runtime_rs::String> → Vec<String>
-                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
-                {% else if field.is_sequence %}
-                // Sequence → Vec conversion with element conversion for nested messages
-                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.into()).collect(),
-                {% else if field.is_unbounded_string_array %}
-                // [rosidl_runtime_rs::String; N] → [String; N] with element conversion
-                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
-                {% else if field.is_bounded_string_array %}
-                // [rosidl_runtime_rs::BoundedString<M>; N] → [String; N] with element conversion
-                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
-                {% else if field.is_unbounded_wstring_array %}
-                // [rosidl_runtime_rs::WString; N] → [String; N] with element conversion
-                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
-                {% else if field.is_bounded_wstring_array %}
-                // [rosidl_runtime_rs::BoundedWString<M>; N] → [String; N] with element conversion
-                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
-                {% else if field.is_primitive_array %}
-                // Primitive arrays are Clone
-                {{ field.name }}: rmw.{{ field.name }}.clone(),
-                {% else if field.is_array %}
-                // Message arrays need element-wise conversion
-                {{ field.name }}: std::array::from_fn(|i| (&rmw.{{ field.name }}[i]).into()),
-                {% else if field.is_primitive %}
-                // Primitives are Copy, just copy the value
+                {% match field.kind %}
+                {% when FieldKind::Primitive %}
                 {{ field.name }}: rmw.{{ field.name }},
-                {% else %}
-                // Nested messages need reference conversion
+                {% when FieldKind::UnboundedString %}
+                {{ field.name }}: rmw.{{ field.name }}.to_string(),
+                {% when FieldKind::BoundedString %}
+                {{ field.name }}: rmw.{{ field.name }}.to_string(),
+                {% when FieldKind::UnboundedWString %}
+                {{ field.name }}: rmw.{{ field.name }}.to_string(),
+                {% when FieldKind::BoundedWString %}
+                {{ field.name }}: rmw.{{ field.name }}.to_string(),
+                {% when FieldKind::NestedMessage %}
                 {{ field.name }}: (&rmw.{{ field.name }}).into(),
-                {% endif %}
+                {% when FieldKind::PrimitiveArray %}
+                {{ field.name }}: rmw.{{ field.name }}.clone(),
+                {% when FieldKind::UnboundedStringArray %}
+                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
+                {% when FieldKind::BoundedStringArray %}
+                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
+                {% when FieldKind::UnboundedWStringArray %}
+                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
+                {% when FieldKind::BoundedWStringArray %}
+                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
+                {% when FieldKind::NestedMessageArray %}
+                {{ field.name }}: std::array::from_fn(|i| (&rmw.{{ field.name }}[i]).into()),
+                {% when FieldKind::LargeArray %}
+                {{ field.name }}: rmw.{{ field.name }}.clone(),
+                {% when FieldKind::BoundedPrimitiveSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().to_vec(),
+                {% when FieldKind::BoundedUnboundedStringSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
+                {% when FieldKind::BoundedBoundedStringSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
+                {% when FieldKind::BoundedUnboundedWStringSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
+                {% when FieldKind::BoundedBoundedWStringSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
+                {% when FieldKind::BoundedNestedMessageSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.into()).collect(),
+                {% when FieldKind::UnboundedPrimitiveSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().to_vec(),
+                {% when FieldKind::UnboundedUnboundedStringSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
+                {% when FieldKind::UnboundedBoundedStringSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
+                {% when FieldKind::UnboundedUnboundedWStringSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
+                {% when FieldKind::UnboundedBoundedWStringSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
+                {% when FieldKind::UnboundedNestedMessageSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.into()).collect(),
+                {% endmatch %}
                 {% endfor %}
             }
         }
@@ -95,50 +107,78 @@ pub mod goal {
         fn from(idiomatic: {{ action_name }}Goal) -> Self {
             Self {
                 {% for field in goal_fields %}
-                {% if field.is_wstring %}
-                // String → rosidl_runtime_rs::WString
-                {{ field.name }}: crate::rosidl_runtime_rs::WString::from(idiomatic.{{ field.name }}.as_str()),
-                {% else if field.is_string %}
-                // String → rosidl_runtime_rs::String (use rosidl_runtime_rs 0.5 API)
+                {% match field.kind %}
+                {% when FieldKind::Primitive %}
+                {{ field.name }}: idiomatic.{{ field.name }},
+                {% when FieldKind::UnboundedString %}
                 {{ field.name }}: crate::rosidl_runtime_rs::String::from(idiomatic.{{ field.name }}.as_str()),
-                {% else if field.is_primitive_sequence %}
-                // Vec<primitive> → Sequence<primitive> (use rosidl_runtime_rs 0.5 API)
+                {% when FieldKind::BoundedString %}
+                {{ field.name }}: crate::rosidl_runtime_rs::BoundedString::try_from(idiomatic.{{ field.name }}.as_str()).unwrap(),
+                {% when FieldKind::UnboundedWString %}
+                {{ field.name }}: crate::rosidl_runtime_rs::WString::from(idiomatic.{{ field.name }}.as_str()),
+                {% when FieldKind::BoundedWString %}
+                {{ field.name }}: crate::rosidl_runtime_rs::BoundedWString::try_from(idiomatic.{{ field.name }}.as_str()).unwrap(),
+                {% when FieldKind::NestedMessage %}
+                {{ field.name }}: (&idiomatic.{{ field.name }}).into(),
+                {% when FieldKind::PrimitiveArray %}
+                {{ field.name }}: idiomatic.{{ field.name }}.clone(),
+                {% when FieldKind::UnboundedStringArray %}
+                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::String::from(idiomatic.{{ field.name }}[i].as_str())),
+                {% when FieldKind::BoundedStringArray %}
+                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::BoundedString::try_from(idiomatic.{{ field.name }}[i].as_str()).unwrap()),
+                {% when FieldKind::UnboundedWStringArray %}
+                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::WString::from(idiomatic.{{ field.name }}[i].as_str())),
+                {% when FieldKind::BoundedWStringArray %}
+                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::BoundedWString::try_from(idiomatic.{{ field.name }}[i].as_str()).unwrap()),
+                {% when FieldKind::NestedMessageArray %}
+                {{ field.name }}: std::array::from_fn(|i| (&idiomatic.{{ field.name }}[i]).into()),
+                {% when FieldKind::LargeArray %}
+                {{ field.name }}: idiomatic.{{ field.name }}.clone(),
+                {% when FieldKind::BoundedPrimitiveSequence %}
+                {{ field.name }}: crate::rosidl_runtime_rs::BoundedSequence::try_from(idiomatic.{{ field.name }}.clone()).unwrap(),
+                {% when FieldKind::BoundedUnboundedStringSequence %}
+                {{ field.name }}: crate::rosidl_runtime_rs::BoundedSequence::try_from(
+                    idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::String::from(item.as_str())).collect::<Vec<_>>()
+                ).unwrap(),
+                {% when FieldKind::BoundedBoundedStringSequence %}
+                {{ field.name }}: crate::rosidl_runtime_rs::BoundedSequence::try_from(
+                    idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::BoundedString::try_from(item.as_str()).unwrap()).collect::<Vec<_>>()
+                ).unwrap(),
+                {% when FieldKind::BoundedUnboundedWStringSequence %}
+                {{ field.name }}: crate::rosidl_runtime_rs::BoundedSequence::try_from(
+                    idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::WString::from(item.as_str())).collect::<Vec<_>>()
+                ).unwrap(),
+                {% when FieldKind::BoundedBoundedWStringSequence %}
+                {{ field.name }}: crate::rosidl_runtime_rs::BoundedSequence::try_from(
+                    idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::BoundedWString::try_from(item.as_str()).unwrap()).collect::<Vec<_>>()
+                ).unwrap(),
+                {% when FieldKind::BoundedNestedMessageSequence %}
+                {{ field.name }}: crate::rosidl_runtime_rs::BoundedSequence::try_from(
+                    idiomatic.{{ field.name }}.iter().map(|item| item.into()).collect::<Vec<_>>()
+                ).unwrap(),
+                {% when FieldKind::UnboundedPrimitiveSequence %}
                 {{ field.name }}: crate::rosidl_runtime_rs::Sequence::from(idiomatic.{{ field.name }}.clone()),
-                {% else if field.is_string_sequence %}
-                // Vec<String> → Sequence<rosidl_runtime_rs::String>
+                {% when FieldKind::UnboundedUnboundedStringSequence %}
                 {{ field.name }}: crate::rosidl_runtime_rs::Sequence::from(
                     idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::String::from(item.as_str())).collect::<Vec<_>>()
                 ),
-                {% else if field.is_sequence %}
-                // Vec → Sequence conversion with element conversion for nested messages
+                {% when FieldKind::UnboundedBoundedStringSequence %}
+                {{ field.name }}: crate::rosidl_runtime_rs::Sequence::from(
+                    idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::BoundedString::try_from(item.as_str()).unwrap()).collect::<Vec<_>>()
+                ),
+                {% when FieldKind::UnboundedUnboundedWStringSequence %}
+                {{ field.name }}: crate::rosidl_runtime_rs::Sequence::from(
+                    idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::WString::from(item.as_str())).collect::<Vec<_>>()
+                ),
+                {% when FieldKind::UnboundedBoundedWStringSequence %}
+                {{ field.name }}: crate::rosidl_runtime_rs::Sequence::from(
+                    idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::BoundedWString::try_from(item.as_str()).unwrap()).collect::<Vec<_>>()
+                ),
+                {% when FieldKind::UnboundedNestedMessageSequence %}
                 {{ field.name }}: crate::rosidl_runtime_rs::Sequence::from(
                     idiomatic.{{ field.name }}.iter().map(|item| item.into()).collect::<Vec<_>>()
                 ),
-                {% else if field.is_unbounded_string_array %}
-                // [String; N] → [rosidl_runtime_rs::String; N] with element conversion
-                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::String::from(idiomatic.{{ field.name }}[i].as_str())),
-                {% else if field.is_bounded_string_array %}
-                // [String; N] → [rosidl_runtime_rs::BoundedString<M>; N] with element conversion
-                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::BoundedString::try_from(idiomatic.{{ field.name }}[i].as_str()).unwrap()),
-                {% else if field.is_unbounded_wstring_array %}
-                // [String; N] → [rosidl_runtime_rs::WString; N] with element conversion
-                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::WString::from(idiomatic.{{ field.name }}[i].as_str())),
-                {% else if field.is_bounded_wstring_array %}
-                // [String; N] → [rosidl_runtime_rs::BoundedWString<M>; N] with element conversion
-                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::BoundedWString::try_from(idiomatic.{{ field.name }}[i].as_str()).unwrap()),
-                {% else if field.is_primitive_array %}
-                // Primitive arrays are Clone
-                {{ field.name }}: idiomatic.{{ field.name }}.clone(),
-                {% else if field.is_array %}
-                // Message arrays need element-wise conversion
-                {{ field.name }}: std::array::from_fn(|i| (&idiomatic.{{ field.name }}[i]).into()),
-                {% else if field.is_primitive %}
-                // Primitives are Copy, just copy the value
-                {{ field.name }}: idiomatic.{{ field.name }},
-                {% else %}
-                // Nested messages need reference conversion
-                {{ field.name }}: (&idiomatic.{{ field.name }}).into(),
-                {% endif %}
+                {% endmatch %}
                 {% endfor %}
             }
         }
@@ -149,12 +189,10 @@ pub mod goal {
         type RmwMsg = crate::action::rmw::{{ action_name }}Goal;
 
         fn into_rmw_message(msg_cow: std::borrow::Cow<'_, Self>) -> std::borrow::Cow<'_, Self::RmwMsg> {
-            // Convert from idiomatic to RMW format
             std::borrow::Cow::Owned(msg_cow.into_owned().into())
         }
 
         fn from_rmw_message(msg: Self::RmwMsg) -> Self {
-            // Convert from RMW to idiomatic format
             msg.into()
         }
     }
@@ -188,128 +226,162 @@ pub mod result {
 
     impl Default for {{ action_name }}Result {
         fn default() -> Self {
-            // Leverage FFI message's C init function to get correct default values
             <Self as crate::rosidl_runtime_rs::Message>::from_rmw_message(crate::action::rmw::{{ action_name }}Result::default())
         }
     }
 
-    // Conversion from FFI layer
     impl From<crate::action::rmw::{{ action_name }}Result> for {{ action_name }}Result {
         #[allow(unused_variables)]
         fn from(rmw: crate::action::rmw::{{ action_name }}Result) -> Self {
             Self {
                 {% for field in result_fields %}
-                {% if field.is_wstring %}
-                // rosidl_runtime_rs::WString → String
-                {{ field.name }}: rmw.{{ field.name }}.to_string(),
-                {% else if field.is_string %}
-                // rosidl_runtime_rs::String → String (use rosidl_runtime_rs 0.5 API)
-                {{ field.name }}: rmw.{{ field.name }}.to_string(),
-                {% else if field.is_primitive_sequence %}
-                // Sequence<primitive> → Vec<primitive> (use rosidl_runtime_rs 0.5 API)
-                {{ field.name }}: rmw.{{ field.name }}.as_slice().to_vec(),
-                {% else if field.is_string_sequence %}
-                // Sequence<rosidl_runtime_rs::String> → Vec<String>
-                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
-                {% else if field.is_sequence %}
-                // Sequence → Vec conversion with element conversion for nested messages
-                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.into()).collect(),
-                {% else if field.is_unbounded_string_array %}
-                // [rosidl_runtime_rs::String; N] → [String; N] with element conversion
-                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
-                {% else if field.is_bounded_string_array %}
-                // [rosidl_runtime_rs::BoundedString<M>; N] → [String; N] with element conversion
-                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
-                {% else if field.is_unbounded_wstring_array %}
-                // [rosidl_runtime_rs::WString; N] → [String; N] with element conversion
-                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
-                {% else if field.is_bounded_wstring_array %}
-                // [rosidl_runtime_rs::BoundedWString<M>; N] → [String; N] with element conversion
-                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
-                {% else if field.is_primitive_array %}
-                // Primitive arrays are Clone
-                {{ field.name }}: rmw.{{ field.name }}.clone(),
-                {% else if field.is_array %}
-                // Message arrays need element-wise conversion
-                {{ field.name }}: std::array::from_fn(|i| (&rmw.{{ field.name }}[i]).into()),
-                {% else if field.is_primitive %}
-                // Primitives are Copy, just copy the value
+                {% match field.kind %}
+                {% when FieldKind::Primitive %}
                 {{ field.name }}: rmw.{{ field.name }},
-                {% else %}
-                // Nested messages need reference conversion
+                {% when FieldKind::UnboundedString %}
+                {{ field.name }}: rmw.{{ field.name }}.to_string(),
+                {% when FieldKind::BoundedString %}
+                {{ field.name }}: rmw.{{ field.name }}.to_string(),
+                {% when FieldKind::UnboundedWString %}
+                {{ field.name }}: rmw.{{ field.name }}.to_string(),
+                {% when FieldKind::BoundedWString %}
+                {{ field.name }}: rmw.{{ field.name }}.to_string(),
+                {% when FieldKind::NestedMessage %}
                 {{ field.name }}: (&rmw.{{ field.name }}).into(),
-                {% endif %}
+                {% when FieldKind::PrimitiveArray %}
+                {{ field.name }}: rmw.{{ field.name }}.clone(),
+                {% when FieldKind::UnboundedStringArray %}
+                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
+                {% when FieldKind::BoundedStringArray %}
+                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
+                {% when FieldKind::UnboundedWStringArray %}
+                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
+                {% when FieldKind::BoundedWStringArray %}
+                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
+                {% when FieldKind::NestedMessageArray %}
+                {{ field.name }}: std::array::from_fn(|i| (&rmw.{{ field.name }}[i]).into()),
+                {% when FieldKind::LargeArray %}
+                {{ field.name }}: rmw.{{ field.name }}.clone(),
+                {% when FieldKind::BoundedPrimitiveSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().to_vec(),
+                {% when FieldKind::BoundedUnboundedStringSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
+                {% when FieldKind::BoundedBoundedStringSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
+                {% when FieldKind::BoundedUnboundedWStringSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
+                {% when FieldKind::BoundedBoundedWStringSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
+                {% when FieldKind::BoundedNestedMessageSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.into()).collect(),
+                {% when FieldKind::UnboundedPrimitiveSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().to_vec(),
+                {% when FieldKind::UnboundedUnboundedStringSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
+                {% when FieldKind::UnboundedBoundedStringSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
+                {% when FieldKind::UnboundedUnboundedWStringSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
+                {% when FieldKind::UnboundedBoundedWStringSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
+                {% when FieldKind::UnboundedNestedMessageSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.into()).collect(),
+                {% endmatch %}
                 {% endfor %}
             }
         }
     }
 
-    // Conversion to FFI layer
     impl From<{{ action_name }}Result> for crate::action::rmw::{{ action_name }}Result {
         #[allow(unused_variables)]
         fn from(idiomatic: {{ action_name }}Result) -> Self {
             Self {
                 {% for field in result_fields %}
-                {% if field.is_wstring %}
-                // String → rosidl_runtime_rs::WString
-                {{ field.name }}: crate::rosidl_runtime_rs::WString::from(idiomatic.{{ field.name }}.as_str()),
-                {% else if field.is_string %}
-                // String → rosidl_runtime_rs::String (use rosidl_runtime_rs 0.5 API)
+                {% match field.kind %}
+                {% when FieldKind::Primitive %}
+                {{ field.name }}: idiomatic.{{ field.name }},
+                {% when FieldKind::UnboundedString %}
                 {{ field.name }}: crate::rosidl_runtime_rs::String::from(idiomatic.{{ field.name }}.as_str()),
-                {% else if field.is_primitive_sequence %}
-                // Vec<primitive> → Sequence<primitive> (use rosidl_runtime_rs 0.5 API)
+                {% when FieldKind::BoundedString %}
+                {{ field.name }}: crate::rosidl_runtime_rs::BoundedString::try_from(idiomatic.{{ field.name }}.as_str()).unwrap(),
+                {% when FieldKind::UnboundedWString %}
+                {{ field.name }}: crate::rosidl_runtime_rs::WString::from(idiomatic.{{ field.name }}.as_str()),
+                {% when FieldKind::BoundedWString %}
+                {{ field.name }}: crate::rosidl_runtime_rs::BoundedWString::try_from(idiomatic.{{ field.name }}.as_str()).unwrap(),
+                {% when FieldKind::NestedMessage %}
+                {{ field.name }}: (&idiomatic.{{ field.name }}).into(),
+                {% when FieldKind::PrimitiveArray %}
+                {{ field.name }}: idiomatic.{{ field.name }}.clone(),
+                {% when FieldKind::UnboundedStringArray %}
+                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::String::from(idiomatic.{{ field.name }}[i].as_str())),
+                {% when FieldKind::BoundedStringArray %}
+                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::BoundedString::try_from(idiomatic.{{ field.name }}[i].as_str()).unwrap()),
+                {% when FieldKind::UnboundedWStringArray %}
+                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::WString::from(idiomatic.{{ field.name }}[i].as_str())),
+                {% when FieldKind::BoundedWStringArray %}
+                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::BoundedWString::try_from(idiomatic.{{ field.name }}[i].as_str()).unwrap()),
+                {% when FieldKind::NestedMessageArray %}
+                {{ field.name }}: std::array::from_fn(|i| (&idiomatic.{{ field.name }}[i]).into()),
+                {% when FieldKind::LargeArray %}
+                {{ field.name }}: idiomatic.{{ field.name }}.clone(),
+                {% when FieldKind::BoundedPrimitiveSequence %}
+                {{ field.name }}: crate::rosidl_runtime_rs::BoundedSequence::try_from(idiomatic.{{ field.name }}.clone()).unwrap(),
+                {% when FieldKind::BoundedUnboundedStringSequence %}
+                {{ field.name }}: crate::rosidl_runtime_rs::BoundedSequence::try_from(
+                    idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::String::from(item.as_str())).collect::<Vec<_>>()
+                ).unwrap(),
+                {% when FieldKind::BoundedBoundedStringSequence %}
+                {{ field.name }}: crate::rosidl_runtime_rs::BoundedSequence::try_from(
+                    idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::BoundedString::try_from(item.as_str()).unwrap()).collect::<Vec<_>>()
+                ).unwrap(),
+                {% when FieldKind::BoundedUnboundedWStringSequence %}
+                {{ field.name }}: crate::rosidl_runtime_rs::BoundedSequence::try_from(
+                    idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::WString::from(item.as_str())).collect::<Vec<_>>()
+                ).unwrap(),
+                {% when FieldKind::BoundedBoundedWStringSequence %}
+                {{ field.name }}: crate::rosidl_runtime_rs::BoundedSequence::try_from(
+                    idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::BoundedWString::try_from(item.as_str()).unwrap()).collect::<Vec<_>>()
+                ).unwrap(),
+                {% when FieldKind::BoundedNestedMessageSequence %}
+                {{ field.name }}: crate::rosidl_runtime_rs::BoundedSequence::try_from(
+                    idiomatic.{{ field.name }}.iter().map(|item| item.into()).collect::<Vec<_>>()
+                ).unwrap(),
+                {% when FieldKind::UnboundedPrimitiveSequence %}
                 {{ field.name }}: crate::rosidl_runtime_rs::Sequence::from(idiomatic.{{ field.name }}.clone()),
-                {% else if field.is_string_sequence %}
-                // Vec<String> → Sequence<rosidl_runtime_rs::String>
+                {% when FieldKind::UnboundedUnboundedStringSequence %}
                 {{ field.name }}: crate::rosidl_runtime_rs::Sequence::from(
                     idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::String::from(item.as_str())).collect::<Vec<_>>()
                 ),
-                {% else if field.is_sequence %}
-                // Vec → Sequence conversion with element conversion for nested messages
+                {% when FieldKind::UnboundedBoundedStringSequence %}
+                {{ field.name }}: crate::rosidl_runtime_rs::Sequence::from(
+                    idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::BoundedString::try_from(item.as_str()).unwrap()).collect::<Vec<_>>()
+                ),
+                {% when FieldKind::UnboundedUnboundedWStringSequence %}
+                {{ field.name }}: crate::rosidl_runtime_rs::Sequence::from(
+                    idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::WString::from(item.as_str())).collect::<Vec<_>>()
+                ),
+                {% when FieldKind::UnboundedBoundedWStringSequence %}
+                {{ field.name }}: crate::rosidl_runtime_rs::Sequence::from(
+                    idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::BoundedWString::try_from(item.as_str()).unwrap()).collect::<Vec<_>>()
+                ),
+                {% when FieldKind::UnboundedNestedMessageSequence %}
                 {{ field.name }}: crate::rosidl_runtime_rs::Sequence::from(
                     idiomatic.{{ field.name }}.iter().map(|item| item.into()).collect::<Vec<_>>()
                 ),
-                {% else if field.is_unbounded_string_array %}
-                // [String; N] → [rosidl_runtime_rs::String; N] with element conversion
-                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::String::from(idiomatic.{{ field.name }}[i].as_str())),
-                {% else if field.is_bounded_string_array %}
-                // [String; N] → [rosidl_runtime_rs::BoundedString<M>; N] with element conversion
-                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::BoundedString::try_from(idiomatic.{{ field.name }}[i].as_str()).unwrap()),
-                {% else if field.is_unbounded_wstring_array %}
-                // [String; N] → [rosidl_runtime_rs::WString; N] with element conversion
-                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::WString::from(idiomatic.{{ field.name }}[i].as_str())),
-                {% else if field.is_bounded_wstring_array %}
-                // [String; N] → [rosidl_runtime_rs::BoundedWString<M>; N] with element conversion
-                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::BoundedWString::try_from(idiomatic.{{ field.name }}[i].as_str()).unwrap()),
-                {% else if field.is_primitive_array %}
-                // Primitive arrays are Clone
-                {{ field.name }}: idiomatic.{{ field.name }}.clone(),
-                {% else if field.is_array %}
-                // Message arrays need element-wise conversion
-                {{ field.name }}: std::array::from_fn(|i| (&idiomatic.{{ field.name }}[i]).into()),
-                {% else if field.is_primitive %}
-                // Primitives are Copy, just copy the value
-                {{ field.name }}: idiomatic.{{ field.name }},
-                {% else %}
-                // Nested messages need reference conversion
-                {{ field.name }}: (&idiomatic.{{ field.name }}).into(),
-                {% endif %}
+                {% endmatch %}
                 {% endfor %}
             }
         }
     }
 
-    // Message trait implementation for rosidl_runtime_rs
     impl crate::rosidl_runtime_rs::Message for {{ action_name }}Result {
         type RmwMsg = crate::action::rmw::{{ action_name }}Result;
 
         fn into_rmw_message(msg_cow: std::borrow::Cow<'_, Self>) -> std::borrow::Cow<'_, Self::RmwMsg> {
-            // Convert from idiomatic to RMW format
             std::borrow::Cow::Owned(msg_cow.into_owned().into())
         }
 
         fn from_rmw_message(msg: Self::RmwMsg) -> Self {
-            // Convert from RMW to idiomatic format
             msg.into()
         }
     }
@@ -343,128 +415,162 @@ pub mod feedback {
 
     impl Default for {{ action_name }}Feedback {
         fn default() -> Self {
-            // Leverage FFI message's C init function to get correct default values
             <Self as crate::rosidl_runtime_rs::Message>::from_rmw_message(crate::action::rmw::{{ action_name }}Feedback::default())
         }
     }
 
-    // Conversion from FFI layer
     impl From<crate::action::rmw::{{ action_name }}Feedback> for {{ action_name }}Feedback {
         #[allow(unused_variables)]
         fn from(rmw: crate::action::rmw::{{ action_name }}Feedback) -> Self {
             Self {
                 {% for field in feedback_fields %}
-                {% if field.is_wstring %}
-                // rosidl_runtime_rs::WString → String
-                {{ field.name }}: rmw.{{ field.name }}.to_string(),
-                {% else if field.is_string %}
-                // rosidl_runtime_rs::String → String (use rosidl_runtime_rs 0.5 API)
-                {{ field.name }}: rmw.{{ field.name }}.to_string(),
-                {% else if field.is_primitive_sequence %}
-                // Sequence<primitive> → Vec<primitive> (use rosidl_runtime_rs 0.5 API)
-                {{ field.name }}: rmw.{{ field.name }}.as_slice().to_vec(),
-                {% else if field.is_string_sequence %}
-                // Sequence<rosidl_runtime_rs::String> → Vec<String>
-                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
-                {% else if field.is_sequence %}
-                // Sequence → Vec conversion with element conversion for nested messages
-                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.into()).collect(),
-                {% else if field.is_unbounded_string_array %}
-                // [rosidl_runtime_rs::String; N] → [String; N] with element conversion
-                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
-                {% else if field.is_bounded_string_array %}
-                // [rosidl_runtime_rs::BoundedString<M>; N] → [String; N] with element conversion
-                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
-                {% else if field.is_unbounded_wstring_array %}
-                // [rosidl_runtime_rs::WString; N] → [String; N] with element conversion
-                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
-                {% else if field.is_bounded_wstring_array %}
-                // [rosidl_runtime_rs::BoundedWString<M>; N] → [String; N] with element conversion
-                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
-                {% else if field.is_primitive_array %}
-                // Primitive arrays are Clone
-                {{ field.name }}: rmw.{{ field.name }}.clone(),
-                {% else if field.is_array %}
-                // Message arrays need element-wise conversion
-                {{ field.name }}: std::array::from_fn(|i| (&rmw.{{ field.name }}[i]).into()),
-                {% else if field.is_primitive %}
-                // Primitives are Copy, just copy the value
+                {% match field.kind %}
+                {% when FieldKind::Primitive %}
                 {{ field.name }}: rmw.{{ field.name }},
-                {% else %}
-                // Nested messages need reference conversion
+                {% when FieldKind::UnboundedString %}
+                {{ field.name }}: rmw.{{ field.name }}.to_string(),
+                {% when FieldKind::BoundedString %}
+                {{ field.name }}: rmw.{{ field.name }}.to_string(),
+                {% when FieldKind::UnboundedWString %}
+                {{ field.name }}: rmw.{{ field.name }}.to_string(),
+                {% when FieldKind::BoundedWString %}
+                {{ field.name }}: rmw.{{ field.name }}.to_string(),
+                {% when FieldKind::NestedMessage %}
                 {{ field.name }}: (&rmw.{{ field.name }}).into(),
-                {% endif %}
+                {% when FieldKind::PrimitiveArray %}
+                {{ field.name }}: rmw.{{ field.name }}.clone(),
+                {% when FieldKind::UnboundedStringArray %}
+                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
+                {% when FieldKind::BoundedStringArray %}
+                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
+                {% when FieldKind::UnboundedWStringArray %}
+                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
+                {% when FieldKind::BoundedWStringArray %}
+                {{ field.name }}: std::array::from_fn(|i| rmw.{{ field.name }}[i].to_string()),
+                {% when FieldKind::NestedMessageArray %}
+                {{ field.name }}: std::array::from_fn(|i| (&rmw.{{ field.name }}[i]).into()),
+                {% when FieldKind::LargeArray %}
+                {{ field.name }}: rmw.{{ field.name }}.clone(),
+                {% when FieldKind::BoundedPrimitiveSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().to_vec(),
+                {% when FieldKind::BoundedUnboundedStringSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
+                {% when FieldKind::BoundedBoundedStringSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
+                {% when FieldKind::BoundedUnboundedWStringSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
+                {% when FieldKind::BoundedBoundedWStringSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
+                {% when FieldKind::BoundedNestedMessageSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.into()).collect(),
+                {% when FieldKind::UnboundedPrimitiveSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().to_vec(),
+                {% when FieldKind::UnboundedUnboundedStringSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
+                {% when FieldKind::UnboundedBoundedStringSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
+                {% when FieldKind::UnboundedUnboundedWStringSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
+                {% when FieldKind::UnboundedBoundedWStringSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.to_string()).collect(),
+                {% when FieldKind::UnboundedNestedMessageSequence %}
+                {{ field.name }}: rmw.{{ field.name }}.as_slice().iter().map(|item| item.into()).collect(),
+                {% endmatch %}
                 {% endfor %}
             }
         }
     }
 
-    // Conversion to FFI layer
     impl From<{{ action_name }}Feedback> for crate::action::rmw::{{ action_name }}Feedback {
         #[allow(unused_variables)]
         fn from(idiomatic: {{ action_name }}Feedback) -> Self {
             Self {
                 {% for field in feedback_fields %}
-                {% if field.is_wstring %}
-                // String → rosidl_runtime_rs::WString
-                {{ field.name }}: crate::rosidl_runtime_rs::WString::from(idiomatic.{{ field.name }}.as_str()),
-                {% else if field.is_string %}
-                // String → rosidl_runtime_rs::String (use rosidl_runtime_rs 0.5 API)
+                {% match field.kind %}
+                {% when FieldKind::Primitive %}
+                {{ field.name }}: idiomatic.{{ field.name }},
+                {% when FieldKind::UnboundedString %}
                 {{ field.name }}: crate::rosidl_runtime_rs::String::from(idiomatic.{{ field.name }}.as_str()),
-                {% else if field.is_primitive_sequence %}
-                // Vec<primitive> → Sequence<primitive> (use rosidl_runtime_rs 0.5 API)
+                {% when FieldKind::BoundedString %}
+                {{ field.name }}: crate::rosidl_runtime_rs::BoundedString::try_from(idiomatic.{{ field.name }}.as_str()).unwrap(),
+                {% when FieldKind::UnboundedWString %}
+                {{ field.name }}: crate::rosidl_runtime_rs::WString::from(idiomatic.{{ field.name }}.as_str()),
+                {% when FieldKind::BoundedWString %}
+                {{ field.name }}: crate::rosidl_runtime_rs::BoundedWString::try_from(idiomatic.{{ field.name }}.as_str()).unwrap(),
+                {% when FieldKind::NestedMessage %}
+                {{ field.name }}: (&idiomatic.{{ field.name }}).into(),
+                {% when FieldKind::PrimitiveArray %}
+                {{ field.name }}: idiomatic.{{ field.name }}.clone(),
+                {% when FieldKind::UnboundedStringArray %}
+                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::String::from(idiomatic.{{ field.name }}[i].as_str())),
+                {% when FieldKind::BoundedStringArray %}
+                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::BoundedString::try_from(idiomatic.{{ field.name }}[i].as_str()).unwrap()),
+                {% when FieldKind::UnboundedWStringArray %}
+                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::WString::from(idiomatic.{{ field.name }}[i].as_str())),
+                {% when FieldKind::BoundedWStringArray %}
+                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::BoundedWString::try_from(idiomatic.{{ field.name }}[i].as_str()).unwrap()),
+                {% when FieldKind::NestedMessageArray %}
+                {{ field.name }}: std::array::from_fn(|i| (&idiomatic.{{ field.name }}[i]).into()),
+                {% when FieldKind::LargeArray %}
+                {{ field.name }}: idiomatic.{{ field.name }}.clone(),
+                {% when FieldKind::BoundedPrimitiveSequence %}
+                {{ field.name }}: crate::rosidl_runtime_rs::BoundedSequence::try_from(idiomatic.{{ field.name }}.clone()).unwrap(),
+                {% when FieldKind::BoundedUnboundedStringSequence %}
+                {{ field.name }}: crate::rosidl_runtime_rs::BoundedSequence::try_from(
+                    idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::String::from(item.as_str())).collect::<Vec<_>>()
+                ).unwrap(),
+                {% when FieldKind::BoundedBoundedStringSequence %}
+                {{ field.name }}: crate::rosidl_runtime_rs::BoundedSequence::try_from(
+                    idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::BoundedString::try_from(item.as_str()).unwrap()).collect::<Vec<_>>()
+                ).unwrap(),
+                {% when FieldKind::BoundedUnboundedWStringSequence %}
+                {{ field.name }}: crate::rosidl_runtime_rs::BoundedSequence::try_from(
+                    idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::WString::from(item.as_str())).collect::<Vec<_>>()
+                ).unwrap(),
+                {% when FieldKind::BoundedBoundedWStringSequence %}
+                {{ field.name }}: crate::rosidl_runtime_rs::BoundedSequence::try_from(
+                    idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::BoundedWString::try_from(item.as_str()).unwrap()).collect::<Vec<_>>()
+                ).unwrap(),
+                {% when FieldKind::BoundedNestedMessageSequence %}
+                {{ field.name }}: crate::rosidl_runtime_rs::BoundedSequence::try_from(
+                    idiomatic.{{ field.name }}.iter().map(|item| item.into()).collect::<Vec<_>>()
+                ).unwrap(),
+                {% when FieldKind::UnboundedPrimitiveSequence %}
                 {{ field.name }}: crate::rosidl_runtime_rs::Sequence::from(idiomatic.{{ field.name }}.clone()),
-                {% else if field.is_string_sequence %}
-                // Vec<String> → Sequence<rosidl_runtime_rs::String>
+                {% when FieldKind::UnboundedUnboundedStringSequence %}
                 {{ field.name }}: crate::rosidl_runtime_rs::Sequence::from(
                     idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::String::from(item.as_str())).collect::<Vec<_>>()
                 ),
-                {% else if field.is_sequence %}
-                // Vec → Sequence conversion with element conversion for nested messages
+                {% when FieldKind::UnboundedBoundedStringSequence %}
+                {{ field.name }}: crate::rosidl_runtime_rs::Sequence::from(
+                    idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::BoundedString::try_from(item.as_str()).unwrap()).collect::<Vec<_>>()
+                ),
+                {% when FieldKind::UnboundedUnboundedWStringSequence %}
+                {{ field.name }}: crate::rosidl_runtime_rs::Sequence::from(
+                    idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::WString::from(item.as_str())).collect::<Vec<_>>()
+                ),
+                {% when FieldKind::UnboundedBoundedWStringSequence %}
+                {{ field.name }}: crate::rosidl_runtime_rs::Sequence::from(
+                    idiomatic.{{ field.name }}.iter().map(|item| crate::rosidl_runtime_rs::BoundedWString::try_from(item.as_str()).unwrap()).collect::<Vec<_>>()
+                ),
+                {% when FieldKind::UnboundedNestedMessageSequence %}
                 {{ field.name }}: crate::rosidl_runtime_rs::Sequence::from(
                     idiomatic.{{ field.name }}.iter().map(|item| item.into()).collect::<Vec<_>>()
                 ),
-                {% else if field.is_unbounded_string_array %}
-                // [String; N] → [rosidl_runtime_rs::String; N] with element conversion
-                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::String::from(idiomatic.{{ field.name }}[i].as_str())),
-                {% else if field.is_bounded_string_array %}
-                // [String; N] → [rosidl_runtime_rs::BoundedString<M>; N] with element conversion
-                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::BoundedString::try_from(idiomatic.{{ field.name }}[i].as_str()).unwrap()),
-                {% else if field.is_unbounded_wstring_array %}
-                // [String; N] → [rosidl_runtime_rs::WString; N] with element conversion
-                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::WString::from(idiomatic.{{ field.name }}[i].as_str())),
-                {% else if field.is_bounded_wstring_array %}
-                // [String; N] → [rosidl_runtime_rs::BoundedWString<M>; N] with element conversion
-                {{ field.name }}: std::array::from_fn(|i| crate::rosidl_runtime_rs::BoundedWString::try_from(idiomatic.{{ field.name }}[i].as_str()).unwrap()),
-                {% else if field.is_primitive_array %}
-                // Primitive arrays are Clone
-                {{ field.name }}: idiomatic.{{ field.name }}.clone(),
-                {% else if field.is_array %}
-                // Message arrays need element-wise conversion
-                {{ field.name }}: std::array::from_fn(|i| (&idiomatic.{{ field.name }}[i]).into()),
-                {% else if field.is_primitive %}
-                // Primitives are Copy, just copy the value
-                {{ field.name }}: idiomatic.{{ field.name }},
-                {% else %}
-                // Nested messages need reference conversion
-                {{ field.name }}: (&idiomatic.{{ field.name }}).into(),
-                {% endif %}
+                {% endmatch %}
                 {% endfor %}
             }
         }
     }
 
-    // Message trait implementation for rosidl_runtime_rs
     impl crate::rosidl_runtime_rs::Message for {{ action_name }}Feedback {
         type RmwMsg = crate::action::rmw::{{ action_name }}Feedback;
 
         fn into_rmw_message(msg_cow: std::borrow::Cow<'_, Self>) -> std::borrow::Cow<'_, Self::RmwMsg> {
-            // Convert from idiomatic to RMW format
             std::borrow::Cow::Owned(msg_cow.into_owned().into())
         }
 
         fn from_rmw_message(msg: Self::RmwMsg) -> Self {
-            // Convert from RMW to idiomatic format
             msg.into()
         }
     }

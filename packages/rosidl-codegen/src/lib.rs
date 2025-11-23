@@ -10,9 +10,8 @@ pub use generator::{
 };
 pub use idl_generator::{extract_annotations, generate_idl_file, GeneratedIdlCode};
 pub use types::{
-    escape_keyword, idl_constant_value_to_rust, is_array_type, is_idl_array, is_idl_primitive,
-    is_idl_sequence, is_idl_string, is_idl_wide_string, is_primitive_sequence, is_primitive_type,
-    is_sequence_type, rust_type_for_field, rust_type_for_idl, rust_type_for_idl_constant,
+    escape_keyword, idl_constant_value_to_rust, rust_type_for_field, rust_type_for_idl,
+    rust_type_for_idl_constant, FieldTypeExt, IdlTypeExt,
 };
 
 #[cfg(test)]

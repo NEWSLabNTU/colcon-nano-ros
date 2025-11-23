@@ -1,20 +1,14 @@
 use crate::templates::{
-    ActionIdiomaticTemplate, ActionRmwTemplate, BuildRsTemplate, CargoTomlTemplate, IdiomaticField,
-    LibRsTemplate, MessageConstant, MessageIdiomaticTemplate, MessageRmwTemplate, RmwField,
-    ServiceIdiomaticTemplate, ServiceRmwTemplate,
+    ActionIdiomaticTemplate, ActionRmwTemplate, BuildRsTemplate, CargoTomlTemplate, FieldKind,
+    IdiomaticField, LibRsTemplate, MessageConstant, MessageIdiomaticTemplate, MessageRmwTemplate,
+    RmwField, ServiceIdiomaticTemplate, ServiceRmwTemplate,
 };
 use crate::types::{
-    constant_value_to_rust, escape_keyword, is_array_type, is_bounded_sequence,
-    is_bounded_string_array, is_bounded_string_sequence, is_bounded_string_type,
-    is_bounded_wstring_array, is_bounded_wstring_sequence, is_bounded_wstring_type, is_large_array,
-    is_nested_array, is_primitive_array, is_primitive_sequence, is_primitive_type,
-    is_sequence_type, is_string_array, is_string_sequence, is_string_type,
-    is_unbounded_string_array, is_unbounded_string_sequence, is_unbounded_wstring_array,
-    is_unbounded_wstring_sequence, is_wstring_type, rust_type_for_constant, rust_type_for_field,
+    constant_value_to_rust, escape_keyword, rust_type_for_constant, rust_type_for_field,
 };
 use crate::utils::{extract_dependencies, needs_big_array, to_snake_case};
 use askama::Template;
-use rosidl_parser::{Action, Message, Service};
+use rosidl_parser::{Action, FieldType, Message, Service};
 use std::collections::HashSet;
 use thiserror::Error;
 
@@ -33,6 +27,69 @@ pub struct GeneratedPackage {
     pub lib_rs: String,
     pub message_rmw: String,
     pub message_idiomatic: String,
+}
+
+/// Determine the exhaustive FieldKind enum variant for a given ROS 2 field type
+/// This function provides compile-time guarantees that all field type combinations are handled
+fn determine_field_kind(field_type: &FieldType) -> FieldKind {
+    match field_type {
+        // Scalar types
+        FieldType::Primitive(_) => FieldKind::Primitive,
+
+        FieldType::String => FieldKind::UnboundedString,
+        FieldType::BoundedString(_) => FieldKind::BoundedString,
+
+        FieldType::WString => FieldKind::UnboundedWString,
+        FieldType::BoundedWString(_) => FieldKind::BoundedWString,
+
+        FieldType::NamespacedType { .. } => FieldKind::NestedMessage,
+
+        // Array types
+        FieldType::Array { element_type, size } => {
+            // Arrays > 32 elements don't impl Copy/Clone in Rust
+            if *size > 32 {
+                return FieldKind::LargeArray;
+            }
+
+            match element_type.as_ref() {
+                FieldType::Primitive(_) => FieldKind::PrimitiveArray,
+
+                FieldType::String => FieldKind::UnboundedStringArray,
+                FieldType::BoundedString(_) => FieldKind::BoundedStringArray,
+
+                FieldType::WString => FieldKind::UnboundedWStringArray,
+                FieldType::BoundedWString(_) => FieldKind::BoundedWStringArray,
+
+                _ => FieldKind::NestedMessageArray,
+            }
+        }
+
+        // Bounded sequences (T[<=N])
+        FieldType::BoundedSequence { element_type, .. } => match element_type.as_ref() {
+            FieldType::Primitive(_) => FieldKind::BoundedPrimitiveSequence,
+
+            FieldType::String => FieldKind::BoundedUnboundedStringSequence,
+            FieldType::BoundedString(_) => FieldKind::BoundedBoundedStringSequence,
+
+            FieldType::WString => FieldKind::BoundedUnboundedWStringSequence,
+            FieldType::BoundedWString(_) => FieldKind::BoundedBoundedWStringSequence,
+
+            _ => FieldKind::BoundedNestedMessageSequence,
+        },
+
+        // Unbounded sequences (T[])
+        FieldType::Sequence { element_type } => match element_type.as_ref() {
+            FieldType::Primitive(_) => FieldKind::UnboundedPrimitiveSequence,
+
+            FieldType::String => FieldKind::UnboundedUnboundedStringSequence,
+            FieldType::BoundedString(_) => FieldKind::UnboundedBoundedStringSequence,
+
+            FieldType::WString => FieldKind::UnboundedUnboundedWStringSequence,
+            FieldType::BoundedWString(_) => FieldKind::UnboundedBoundedWStringSequence,
+
+            _ => FieldKind::UnboundedNestedMessageSequence,
+        },
+    }
 }
 
 /// Generate a complete ROS 2 message package with both RMW and idiomatic layers
@@ -122,28 +179,7 @@ pub fn generate_message_package(
                 .as_ref()
                 .map(constant_value_to_rust)
                 .unwrap_or_default(),
-            is_sequence: is_sequence_type(&f.field_type),
-            is_primitive: is_primitive_type(&f.field_type),
-            is_primitive_sequence: is_primitive_sequence(&f.field_type),
-            is_string_sequence: is_string_sequence(&f.field_type),
-            is_unbounded_string_sequence: is_unbounded_string_sequence(&f.field_type),
-            is_bounded_string_sequence: is_bounded_string_sequence(&f.field_type),
-            is_unbounded_wstring_sequence: is_unbounded_wstring_sequence(&f.field_type),
-            is_bounded_wstring_sequence: is_bounded_wstring_sequence(&f.field_type),
-            is_array: is_array_type(&f.field_type),
-            is_large_array: is_large_array(&f.field_type),
-            is_primitive_array: is_primitive_array(&f.field_type),
-            is_string_array: is_string_array(&f.field_type),
-            is_unbounded_string_array: is_unbounded_string_array(&f.field_type),
-            is_bounded_string_array: is_bounded_string_array(&f.field_type),
-            is_unbounded_wstring_array: is_unbounded_wstring_array(&f.field_type),
-            is_bounded_wstring_array: is_bounded_wstring_array(&f.field_type),
-            is_nested_array: is_nested_array(&f.field_type),
-            is_bounded_sequence: is_bounded_sequence(&f.field_type),
-            is_string: is_string_type(&f.field_type),
-            is_bounded_string: is_bounded_string_type(&f.field_type),
-            is_wstring: is_wstring_type(&f.field_type),
-            is_bounded_wstring: is_bounded_wstring_type(&f.field_type),
+            kind: determine_field_kind(&f.field_type),
         })
         .collect();
 
@@ -252,28 +288,7 @@ pub fn generate_service_package(
                     .as_ref()
                     .map(constant_value_to_rust)
                     .unwrap_or_default(),
-                is_sequence: is_sequence_type(&f.field_type),
-                is_primitive: is_primitive_type(&f.field_type),
-                is_primitive_sequence: is_primitive_sequence(&f.field_type),
-                is_string_sequence: is_string_sequence(&f.field_type),
-                is_unbounded_string_sequence: is_unbounded_string_sequence(&f.field_type),
-                is_bounded_string_sequence: is_bounded_string_sequence(&f.field_type),
-                is_unbounded_wstring_sequence: is_unbounded_wstring_sequence(&f.field_type),
-                is_bounded_wstring_sequence: is_bounded_wstring_sequence(&f.field_type),
-                is_array: is_array_type(&f.field_type),
-                is_large_array: is_large_array(&f.field_type),
-                is_primitive_array: is_primitive_array(&f.field_type),
-                is_string_array: is_string_array(&f.field_type),
-                is_unbounded_string_array: is_unbounded_string_array(&f.field_type),
-                is_bounded_string_array: is_bounded_string_array(&f.field_type),
-                is_unbounded_wstring_array: is_unbounded_wstring_array(&f.field_type),
-                is_bounded_wstring_array: is_bounded_wstring_array(&f.field_type),
-                is_nested_array: is_nested_array(&f.field_type),
-                is_bounded_sequence: is_bounded_sequence(&f.field_type),
-                is_string: is_string_type(&f.field_type),
-                is_bounded_string: is_bounded_string_type(&f.field_type),
-                is_wstring: is_wstring_type(&f.field_type),
-                is_bounded_wstring: is_bounded_wstring_type(&f.field_type),
+                kind: determine_field_kind(&f.field_type),
             })
             .collect()
     };
@@ -400,28 +415,7 @@ pub fn generate_action_package(
                     .as_ref()
                     .map(constant_value_to_rust)
                     .unwrap_or_default(),
-                is_sequence: is_sequence_type(&f.field_type),
-                is_primitive: is_primitive_type(&f.field_type),
-                is_primitive_sequence: is_primitive_sequence(&f.field_type),
-                is_string_sequence: is_string_sequence(&f.field_type),
-                is_unbounded_string_sequence: is_unbounded_string_sequence(&f.field_type),
-                is_bounded_string_sequence: is_bounded_string_sequence(&f.field_type),
-                is_unbounded_wstring_sequence: is_unbounded_wstring_sequence(&f.field_type),
-                is_bounded_wstring_sequence: is_bounded_wstring_sequence(&f.field_type),
-                is_array: is_array_type(&f.field_type),
-                is_large_array: is_large_array(&f.field_type),
-                is_primitive_array: is_primitive_array(&f.field_type),
-                is_string_array: is_string_array(&f.field_type),
-                is_unbounded_string_array: is_unbounded_string_array(&f.field_type),
-                is_bounded_string_array: is_bounded_string_array(&f.field_type),
-                is_unbounded_wstring_array: is_unbounded_wstring_array(&f.field_type),
-                is_bounded_wstring_array: is_bounded_wstring_array(&f.field_type),
-                is_nested_array: is_nested_array(&f.field_type),
-                is_bounded_sequence: is_bounded_sequence(&f.field_type),
-                is_string: is_string_type(&f.field_type),
-                is_bounded_string: is_bounded_string_type(&f.field_type),
-                is_wstring: is_wstring_type(&f.field_type),
-                is_bounded_wstring: is_bounded_wstring_type(&f.field_type),
+                kind: determine_field_kind(&f.field_type),
             })
             .collect()
     };

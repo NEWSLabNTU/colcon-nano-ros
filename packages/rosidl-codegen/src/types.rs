@@ -3,191 +3,243 @@ use rosidl_parser::idl::ast::ConstantValue as IdlConstantValue;
 use rosidl_parser::idl::types::IdlType;
 use rosidl_parser::FieldType;
 
-/// Check if a field type is a sequence (unbounded or bounded)
-pub fn is_sequence_type(field_type: &FieldType) -> bool {
-    matches!(
-        field_type,
-        FieldType::Sequence { .. } | FieldType::BoundedSequence { .. }
-    )
+/// Extension trait for FieldType providing type checking methods
+pub trait FieldTypeExt {
+    /// Check if this is a sequence (unbounded or bounded)
+    fn is_sequence(&self) -> bool;
+
+    /// Check if this is a primitive (no conversion needed)
+    fn is_primitive(&self) -> bool;
+
+    /// Check if this is a string type (String, BoundedString, WString, BoundedWString)
+    fn is_string(&self) -> bool;
+
+    /// Check if this is specifically an unbounded string
+    fn is_unbounded_string(&self) -> bool;
+
+    /// Check if this is specifically a bounded string
+    fn is_bounded_string(&self) -> bool;
+
+    /// Check if this is a WString type (unbounded or bounded)
+    fn is_wstring(&self) -> bool;
+
+    /// Check if this is specifically an unbounded WString
+    fn is_unbounded_wstring(&self) -> bool;
+
+    /// Check if this is specifically a bounded WString
+    fn is_bounded_wstring(&self) -> bool;
+
+    /// Check if this is a sequence of primitives (can be copied directly)
+    fn is_primitive_sequence(&self) -> bool;
+
+    /// Check if this is a sequence of strings (any string type)
+    fn is_string_sequence(&self) -> bool;
+
+    /// Check if this is a sequence of unbounded strings
+    fn is_unbounded_string_sequence(&self) -> bool;
+
+    /// Check if this is a sequence of bounded strings
+    fn is_bounded_string_sequence(&self) -> bool;
+
+    /// Check if this is an array (needs clone, not conversion)
+    fn is_array(&self) -> bool;
+
+    /// Check if this is a large array (> 32 elements, needs big_array for serde)
+    fn is_large_array(&self) -> bool;
+
+    /// Check if this is an array of primitives (can be cloned directly)
+    fn is_primitive_array(&self) -> bool;
+
+    /// Check if this is an array of strings (any string type)
+    fn is_string_array(&self) -> bool;
+
+    /// Check if this is an array of unbounded strings
+    fn is_unbounded_string_array(&self) -> bool;
+
+    /// Check if this is an array of bounded strings
+    fn is_bounded_string_array(&self) -> bool;
+
+    /// Check if this is an array of unbounded wstrings
+    fn is_unbounded_wstring_array(&self) -> bool;
+
+    /// Check if this is an array of bounded wstrings
+    fn is_bounded_wstring_array(&self) -> bool;
+
+    /// Check if this is a sequence of unbounded wstrings
+    fn is_unbounded_wstring_sequence(&self) -> bool;
+
+    /// Check if this is a sequence of bounded wstrings
+    fn is_bounded_wstring_sequence(&self) -> bool;
+
+    /// Check if this is an array of nested messages (needs element conversion)
+    fn is_nested_array(&self) -> bool;
+
+    /// Check if this is a bounded sequence (vs unbounded)
+    fn is_bounded_sequence(&self) -> bool;
 }
 
-/// Check if a field type is a primitive (no conversion needed)
-pub fn is_primitive_type(field_type: &FieldType) -> bool {
-    matches!(field_type, FieldType::Primitive(_))
-}
+impl FieldTypeExt for FieldType {
+    fn is_sequence(&self) -> bool {
+        matches!(
+            self,
+            FieldType::Sequence { .. } | FieldType::BoundedSequence { .. }
+        )
+    }
 
-/// Check if a field type is a string type (String, BoundedString, WString, BoundedWString)
-pub fn is_string_type(field_type: &FieldType) -> bool {
-    matches!(
-        field_type,
-        FieldType::String
-            | FieldType::BoundedString(_)
-            | FieldType::WString
-            | FieldType::BoundedWString(_)
-    )
-}
+    fn is_primitive(&self) -> bool {
+        matches!(self, FieldType::Primitive(_))
+    }
 
-/// Check if a field type is specifically an unbounded string
-pub fn is_unbounded_string_type(field_type: &FieldType) -> bool {
-    matches!(field_type, FieldType::String)
-}
+    fn is_string(&self) -> bool {
+        matches!(
+            self,
+            FieldType::String
+                | FieldType::BoundedString(_)
+                | FieldType::WString
+                | FieldType::BoundedWString(_)
+        )
+    }
 
-/// Check if a field type is specifically a bounded string
-pub fn is_bounded_string_type(field_type: &FieldType) -> bool {
-    matches!(field_type, FieldType::BoundedString(_))
-}
+    fn is_unbounded_string(&self) -> bool {
+        matches!(self, FieldType::String)
+    }
 
-/// Check if a field type is a WString type (unbounded or bounded)
-pub fn is_wstring_type(field_type: &FieldType) -> bool {
-    matches!(
-        field_type,
-        FieldType::WString | FieldType::BoundedWString(_)
-    )
-}
+    fn is_bounded_string(&self) -> bool {
+        matches!(self, FieldType::BoundedString(_))
+    }
 
-/// Check if a field type is specifically an unbounded WString
-pub fn is_unbounded_wstring_type(field_type: &FieldType) -> bool {
-    matches!(field_type, FieldType::WString)
-}
+    fn is_wstring(&self) -> bool {
+        matches!(self, FieldType::WString | FieldType::BoundedWString(_))
+    }
 
-/// Check if a field type is specifically a bounded WString
-pub fn is_bounded_wstring_type(field_type: &FieldType) -> bool {
-    matches!(field_type, FieldType::BoundedWString(_))
-}
+    fn is_unbounded_wstring(&self) -> bool {
+        matches!(self, FieldType::WString)
+    }
 
-/// Check if a field type is a sequence of primitives (can be copied directly)
-pub fn is_primitive_sequence(field_type: &FieldType) -> bool {
-    match field_type {
-        FieldType::Sequence { element_type } | FieldType::BoundedSequence { element_type, .. } => {
-            matches!(**element_type, FieldType::Primitive(_))
+    fn is_bounded_wstring(&self) -> bool {
+        matches!(self, FieldType::BoundedWString(_))
+    }
+
+    fn is_primitive_sequence(&self) -> bool {
+        match self {
+            FieldType::Sequence { element_type }
+            | FieldType::BoundedSequence { element_type, .. } => {
+                matches!(**element_type, FieldType::Primitive(_))
+            }
+            _ => false,
         }
-        _ => false,
     }
-}
 
-/// Check if a field type is a sequence of strings (any string type)
-pub fn is_string_sequence(field_type: &FieldType) -> bool {
-    match field_type {
-        FieldType::Sequence { element_type } | FieldType::BoundedSequence { element_type, .. } => {
-            is_string_type(element_type)
+    fn is_string_sequence(&self) -> bool {
+        match self {
+            FieldType::Sequence { element_type }
+            | FieldType::BoundedSequence { element_type, .. } => element_type.is_string(),
+            _ => false,
         }
-        _ => false,
     }
-}
 
-/// Check if a field type is a sequence of unbounded strings
-pub fn is_unbounded_string_sequence(field_type: &FieldType) -> bool {
-    match field_type {
-        FieldType::Sequence { element_type } | FieldType::BoundedSequence { element_type, .. } => {
-            is_unbounded_string_type(element_type)
+    fn is_unbounded_string_sequence(&self) -> bool {
+        match self {
+            FieldType::Sequence { element_type }
+            | FieldType::BoundedSequence { element_type, .. } => element_type.is_unbounded_string(),
+            _ => false,
         }
-        _ => false,
     }
-}
 
-/// Check if a field type is a sequence of bounded strings
-pub fn is_bounded_string_sequence(field_type: &FieldType) -> bool {
-    match field_type {
-        FieldType::Sequence { element_type } | FieldType::BoundedSequence { element_type, .. } => {
-            is_bounded_string_type(element_type)
+    fn is_bounded_string_sequence(&self) -> bool {
+        match self {
+            FieldType::Sequence { element_type }
+            | FieldType::BoundedSequence { element_type, .. } => element_type.is_bounded_string(),
+            _ => false,
         }
-        _ => false,
     }
-}
 
-/// Check if a field type is an array (needs clone, not conversion)
-pub fn is_array_type(field_type: &FieldType) -> bool {
-    matches!(field_type, FieldType::Array { .. })
-}
-
-/// Check if a field type is a large array (> 32 elements, needs big_array for serde)
-pub fn is_large_array(field_type: &FieldType) -> bool {
-    matches!(field_type, FieldType::Array { size, .. } if *size > 32)
-}
-
-/// Check if a field type is an array of primitives (can be cloned directly)
-pub fn is_primitive_array(field_type: &FieldType) -> bool {
-    match field_type {
-        FieldType::Array { element_type, .. } => matches!(**element_type, FieldType::Primitive(_)),
-        _ => false,
+    fn is_array(&self) -> bool {
+        matches!(self, FieldType::Array { .. })
     }
-}
 
-/// Check if a field type is an array of strings (any string type)
-pub fn is_string_array(field_type: &FieldType) -> bool {
-    match field_type {
-        FieldType::Array { element_type, .. } => is_string_type(element_type),
-        _ => false,
+    fn is_large_array(&self) -> bool {
+        matches!(self, FieldType::Array { size, .. } if *size > 32)
     }
-}
 
-/// Check if a field type is an array of unbounded strings
-pub fn is_unbounded_string_array(field_type: &FieldType) -> bool {
-    match field_type {
-        FieldType::Array { element_type, .. } => is_unbounded_string_type(element_type),
-        _ => false,
-    }
-}
-
-/// Check if a field type is an array of bounded strings
-pub fn is_bounded_string_array(field_type: &FieldType) -> bool {
-    match field_type {
-        FieldType::Array { element_type, .. } => is_bounded_string_type(element_type),
-        _ => false,
-    }
-}
-
-/// Check if a field type is an array of unbounded wstrings
-pub fn is_unbounded_wstring_array(field_type: &FieldType) -> bool {
-    match field_type {
-        FieldType::Array { element_type, .. } => matches!(**element_type, FieldType::WString),
-        _ => false,
-    }
-}
-
-/// Check if a field type is an array of bounded wstrings
-pub fn is_bounded_wstring_array(field_type: &FieldType) -> bool {
-    match field_type {
-        FieldType::Array { element_type, .. } => {
-            matches!(**element_type, FieldType::BoundedWString(_))
+    fn is_primitive_array(&self) -> bool {
+        match self {
+            FieldType::Array { element_type, .. } => {
+                matches!(**element_type, FieldType::Primitive(_))
+            }
+            _ => false,
         }
-        _ => false,
     }
-}
 
-/// Check if a field type is a sequence of unbounded wstrings
-pub fn is_unbounded_wstring_sequence(field_type: &FieldType) -> bool {
-    match field_type {
-        FieldType::Sequence { element_type } | FieldType::BoundedSequence { element_type, .. } => {
-            matches!(**element_type, FieldType::WString)
+    fn is_string_array(&self) -> bool {
+        match self {
+            FieldType::Array { element_type, .. } => element_type.is_string(),
+            _ => false,
         }
-        _ => false,
     }
-}
 
-/// Check if a field type is a sequence of bounded wstrings
-pub fn is_bounded_wstring_sequence(field_type: &FieldType) -> bool {
-    match field_type {
-        FieldType::Sequence { element_type } | FieldType::BoundedSequence { element_type, .. } => {
-            matches!(**element_type, FieldType::BoundedWString(_))
+    fn is_unbounded_string_array(&self) -> bool {
+        match self {
+            FieldType::Array { element_type, .. } => element_type.is_unbounded_string(),
+            _ => false,
         }
-        _ => false,
     }
-}
 
-/// Check if a field type is an array of nested messages (needs element conversion)
-pub fn is_nested_array(field_type: &FieldType) -> bool {
-    match field_type {
-        FieldType::Array { element_type, .. } => {
-            matches!(**element_type, FieldType::NamespacedType { .. })
+    fn is_bounded_string_array(&self) -> bool {
+        match self {
+            FieldType::Array { element_type, .. } => element_type.is_bounded_string(),
+            _ => false,
         }
-        _ => false,
     }
-}
 
-/// Check if a field type is a bounded sequence (vs unbounded)
-pub fn is_bounded_sequence(field_type: &FieldType) -> bool {
-    matches!(field_type, FieldType::BoundedSequence { .. })
+    fn is_unbounded_wstring_array(&self) -> bool {
+        match self {
+            FieldType::Array { element_type, .. } => matches!(**element_type, FieldType::WString),
+            _ => false,
+        }
+    }
+
+    fn is_bounded_wstring_array(&self) -> bool {
+        match self {
+            FieldType::Array { element_type, .. } => {
+                matches!(**element_type, FieldType::BoundedWString(_))
+            }
+            _ => false,
+        }
+    }
+
+    fn is_unbounded_wstring_sequence(&self) -> bool {
+        match self {
+            FieldType::Sequence { element_type }
+            | FieldType::BoundedSequence { element_type, .. } => {
+                matches!(**element_type, FieldType::WString)
+            }
+            _ => false,
+        }
+    }
+
+    fn is_bounded_wstring_sequence(&self) -> bool {
+        match self {
+            FieldType::Sequence { element_type }
+            | FieldType::BoundedSequence { element_type, .. } => {
+                matches!(**element_type, FieldType::BoundedWString(_))
+            }
+            _ => false,
+        }
+    }
+
+    fn is_nested_array(&self) -> bool {
+        match self {
+            FieldType::Array { element_type, .. } => {
+                matches!(**element_type, FieldType::NamespacedType { .. })
+            }
+            _ => false,
+        }
+    }
+
+    fn is_bounded_sequence(&self) -> bool {
+        matches!(self, FieldType::BoundedSequence { .. })
+    }
 }
 
 /// Convert a ConstantValue to a Rust code string
@@ -597,29 +649,44 @@ pub fn idl_constant_value_to_rust(value: &IdlConstantValue) -> String {
     }
 }
 
-/// Check if an IDL type is a wide string
-pub fn is_idl_wide_string(idl_type: &IdlType) -> bool {
-    matches!(idl_type, IdlType::WString(_))
+/// Extension trait for IdlType providing type checking methods
+pub trait IdlTypeExt {
+    /// Check if this is a wide string
+    fn is_wide_string(&self) -> bool;
+
+    /// Check if this is a sequence
+    fn is_sequence(&self) -> bool;
+
+    /// Check if this is an array
+    fn is_array(&self) -> bool;
+
+    /// Check if this is a primitive
+    fn is_primitive(&self) -> bool;
+
+    /// Check if this is a string type
+    fn is_string(&self) -> bool;
 }
 
-/// Check if an IDL type is a sequence
-pub fn is_idl_sequence(idl_type: &IdlType) -> bool {
-    matches!(idl_type, IdlType::Sequence(_, _))
-}
+impl IdlTypeExt for IdlType {
+    fn is_wide_string(&self) -> bool {
+        matches!(self, IdlType::WString(_))
+    }
 
-/// Check if an IDL type is an array
-pub fn is_idl_array(idl_type: &IdlType) -> bool {
-    matches!(idl_type, IdlType::Array(_, _))
-}
+    fn is_sequence(&self) -> bool {
+        matches!(self, IdlType::Sequence(_, _))
+    }
 
-/// Check if an IDL type is a primitive
-pub fn is_idl_primitive(idl_type: &IdlType) -> bool {
-    matches!(idl_type, IdlType::Primitive(_))
-}
+    fn is_array(&self) -> bool {
+        matches!(self, IdlType::Array(_, _))
+    }
 
-/// Check if an IDL type is a string type
-pub fn is_idl_string(idl_type: &IdlType) -> bool {
-    matches!(idl_type, IdlType::String(_) | IdlType::WString(_))
+    fn is_primitive(&self) -> bool {
+        matches!(self, IdlType::Primitive(_))
+    }
+
+    fn is_string(&self) -> bool {
+        matches!(self, IdlType::String(_) | IdlType::WString(_))
+    }
 }
 
 /// Convert IDL primitive to .msg primitive type

@@ -10,8 +10,8 @@ from colcon_core.shell import create_environment_hook
 from colcon_core.task import TaskExtensionPoint, run
 
 # Import Rust library directly via PyO3 bindings
-from colcon_cargo_ros2 import cargo_ros2_py
-from colcon_cargo_ros2.workspace_bindgen import generate_workspace_bindings
+from colcon_nano_ros import cargo_ros2_py
+from colcon_nano_ros.workspace_bindgen import generate_workspace_bindings
 
 logger = colcon_logger.getChild(__name__)
 

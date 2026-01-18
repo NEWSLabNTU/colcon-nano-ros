@@ -11,6 +11,6 @@ name = "cargo_ros2_py"
 crate-type = ["cdylib"]
 
 [dependencies]
-# PyO3 bindings to expose cargo-ros2 functionality to Python
+# PyO3 bindings to expose cargo-nano-ros functionality to Python
 pyo3 = { version = "0.22", features = ["extension-module"] }
-cargo-ros2 = { path = "../cargo-ros2" }
+cargo-nano-ros = { path = "../cargo-nano-ros" }

@@ -1,18 +1,18 @@
 [package]
-name = "cargo-ros2"
+name = "cargo-nano-ros"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "All-in-one build tool for ROS 2 Rust projects"
+description = "Standalone build tool for nano-ros: generate message bindings from package.xml"
 
 [lib]
-name = "cargo_ros2"
+name = "cargo_nano_ros"
 path = "src/lib.rs"
 
 [[bin]]
-name = "cargo-ros2"
+name = "cargo-nano-ros"
 path = "src/main.rs"
 
 [dependencies]
@@ -26,6 +26,7 @@ sha2 = "0.10"
 rosidl-bindgen = { path = "../rosidl-bindgen" }
 rayon = "1.10"
 indicatif = "0.17"
+quick-xml = "0.37"
 
 [dev-dependencies]
 tempfile = "3.8"

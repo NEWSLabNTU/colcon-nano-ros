@@ -19,7 +19,7 @@ from typing import Dict
 from colcon_core.logging import colcon_logger
 
 # Import Rust library directly via PyO3 bindings
-from colcon_cargo_ros2 import cargo_ros2_py
+from colcon_nano_ros import cargo_ros2_py
 
 logger = colcon_logger.getChild(__name__)
 
@@ -91,7 +91,7 @@ class WorkspaceBindingGenerator:
         Returns:
             Dict mapping package names to their share/ directory paths
         """
-        from colcon_cargo_ros2.package_augmentation import RustBindingAugmentation
+        from colcon_nano_ros.package_augmentation import RustBindingAugmentation
 
         # Get Cargo package descriptors (includes parsed dependencies from package.xml)
         cargo_descriptors = getattr(RustBindingAugmentation, "_cargo_descriptors", {})
@@ -161,7 +161,7 @@ class WorkspaceBindingGenerator:
         Args:
             interface_packages: Dict of discovered interface packages from package.xml
         """
-        from colcon_cargo_ros2.package_augmentation import RustBindingAugmentation
+        from colcon_nano_ros.package_augmentation import RustBindingAugmentation
 
         cargo_descriptors = getattr(RustBindingAugmentation, "_cargo_descriptors", {})
         logger.debug(f"Validating Cargo.toml dependencies for {len(cargo_descriptors)} packages")
@@ -232,7 +232,7 @@ class WorkspaceBindingGenerator:
         """
         from catkin_pkg.package import parse_package
 
-        from colcon_cargo_ros2.package_augmentation import RustBindingAugmentation
+        from colcon_nano_ros.package_augmentation import RustBindingAugmentation
 
         workspace_interface_packages = {}
         workspace_dependencies = set()

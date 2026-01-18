@@ -4,7 +4,7 @@ members = [
     "rosidl-parser",
     "rosidl-codegen",
     "rosidl-bindgen",
-    "cargo-ros2",
+    "cargo-nano-ros",
     "colcon-cargo-ros2",  # Package dir name (contains colcon-nano-ros crate)
 ]
 
@@ -13,7 +13,7 @@ version = "0.2.0"
 authors = ["Lin Hsiang-Jui <jerry73204@gmail.com>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/azewiusz/colcon-cargo-ros2"
+repository = "https://github.com/azewiusz/colcon-nano-ros"
 
 [workspace.dependencies]
 # Shared dependencies across workspace members
@@ -29,7 +29,7 @@ toml = "0.8"
 pyo3 = { version = "0.22", features = ["extension-module"] }
 
 # Workspace member dependencies
-cargo-ros2 = { path = "cargo-ros2" }
+cargo-nano-ros = { path = "cargo-nano-ros" }
 rosidl-bindgen = { path = "rosidl-bindgen" }
 rosidl-parser = { path = "rosidl-parser" }
 rosidl-codegen = { path = "rosidl-codegen" }

@@ -1,6 +1,6 @@
-//! Python bindings for cargo-ros2
+//! Python bindings for cargo-nano-ros
 //!
-//! This module exposes cargo-ros2's functionality to Python using PyO3.
+//! This module exposes cargo-nano-ros's functionality to Python using PyO3.
 
 #![allow(clippy::useless_conversion)] // False positive with PyO3 0.22
 
@@ -111,14 +111,14 @@ impl InstallConfig {
 ///     >>> cargo_ros2_py.generate_bindings(config)
 #[pyfunction]
 fn generate_bindings(config: BindgenConfig) -> PyResult<()> {
-    let rust_config = cargo_ros2::BindgenConfig {
+    let rust_config = cargo_nano_ros::BindgenConfig {
         package_name: config.package_name,
         package_path: config.package_path.map(PathBuf::from),
         output_dir: PathBuf::from(config.output_dir),
         verbose: config.verbose,
     };
 
-    cargo_ros2::generate_bindings(rust_config)
+    cargo_nano_ros::generate_bindings(rust_config)
         .map_err(|e| PyRuntimeError::new_err(format!("Binding generation failed: {:#}", e)))?;
     Ok(())
 }
@@ -142,7 +142,7 @@ fn generate_bindings(config: BindgenConfig) -> PyResult<()> {
 ///     >>> cargo_ros2_py.install_to_ament(config)
 #[pyfunction]
 fn install_to_ament(config: InstallConfig) -> PyResult<()> {
-    let rust_config = cargo_ros2::InstallConfig {
+    let rust_config = cargo_nano_ros::InstallConfig {
         project_root: PathBuf::from(config.project_root),
         install_base: PathBuf::from(config.install_base),
         build_base: PathBuf::from(config.build_base),
@@ -150,7 +150,7 @@ fn install_to_ament(config: InstallConfig) -> PyResult<()> {
         verbose: config.verbose,
     };
 
-    cargo_ros2::install_to_ament(rust_config)
+    cargo_nano_ros::install_to_ament(rust_config)
         .map_err(|e| PyRuntimeError::new_err(format!("Installation failed: {:#}", e)))?;
     Ok(())
 }
@@ -169,14 +169,14 @@ fn install_to_ament(config: InstallConfig) -> PyResult<()> {
 ///     >>> cargo_ros2_py.clean_bindings("/path/to/project", verbose=True)
 #[pyfunction]
 fn clean_bindings(project_root: String, verbose: bool) -> PyResult<()> {
-    cargo_ros2::clean_bindings(&PathBuf::from(project_root), verbose)
+    cargo_nano_ros::clean_bindings(&PathBuf::from(project_root), verbose)
         .map_err(|e| PyRuntimeError::new_err(format!("Clean failed: {:#}", e)))?;
     Ok(())
 }
 
-/// Python module for cargo-ros2
+/// Python module for cargo-nano-ros
 ///
-/// This module provides Python bindings to the cargo-ros2 library,
+/// This module provides Python bindings to the cargo-nano-ros library,
 /// enabling direct function calls from Python without subprocess overhead.
 #[pymodule]
 fn cargo_ros2_py(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -193,7 +193,7 @@ fn cargo_ros2_py(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add(
         "__doc__",
-        "Python bindings for cargo-ros2 - Unified build tool for ROS 2 Rust projects",
+        "Python bindings for cargo-nano-ros - Build tool for nano-ros projects",
     )?;
 
     Ok(())

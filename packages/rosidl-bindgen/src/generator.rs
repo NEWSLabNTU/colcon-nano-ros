@@ -224,8 +224,8 @@ fn generate_cargo_toml(
     }
     let std_feature_list = std_features.join(", ");
 
-    // TODO: Make these paths configurable. For now, assume generated packages
-    // are in a `generated/` directory relative to the nano-ros crates.
+    // Use crates.io version specifiers for nano-ros crates.
+    // For development, use .cargo/config.toml [patch.crates-io] to point to local paths.
     let mut cargo_toml = format!(
         r#"[package]
 name = "{}"
@@ -237,9 +237,9 @@ default = []
 std = [{std_features}]
 
 [dependencies]
-# Path to nano-ros crates (relative to generated package location)
-nano-ros-core = {{ path = "../../../crates/nano-ros-core", default-features = false }}
-nano-ros-serdes = {{ path = "../../../crates/nano-ros-serdes", default-features = false }}
+# nano-ros crates (patched to local via .cargo/config.toml during development)
+nano-ros-core = {{ version = "*", default-features = false }}
+nano-ros-serdes = {{ version = "*", default-features = false }}
 heapless = "0.8"
 "#,
         package_name,

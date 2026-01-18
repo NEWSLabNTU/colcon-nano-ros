@@ -177,9 +177,10 @@ fn generate_srv_mod_rs(srv_dir: &Path, package: &Package) -> Result<()> {
     for srv_name in &package.interfaces.services {
         let module_name = to_snake_case(srv_name);
         content.push_str(&format!("mod {};\n", module_name));
+        // Export the service struct, request, and response types
         content.push_str(&format!(
-            "pub use {}::{{{}Request, {}Response}};\n\n",
-            module_name, srv_name, srv_name
+            "pub use {}::{{{}, {}Request, {}Response}};\n\n",
+            module_name, srv_name, srv_name, srv_name
         ));
     }
 

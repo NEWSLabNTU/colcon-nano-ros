@@ -50,7 +50,7 @@ fn test_generate_std_msgs_string() {
     assert!(pkg.message_rs.contains("heapless::String<256>"));
     assert!(pkg
         .message_rs
-        .contains("writer.write_str(self.data.as_str())?"));
+        .contains("writer.write_string(self.data.as_str())?"));
 }
 
 #[test]

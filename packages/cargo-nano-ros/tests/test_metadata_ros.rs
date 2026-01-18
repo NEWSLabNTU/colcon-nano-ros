@@ -53,7 +53,7 @@ install_to_share = ["launch", "config"]
     .unwrap();
 
     // Create installer
-    let installer = cargo_ros2::ament_installer::AmentInstaller::new(
+    let installer = cargo_nano_ros::ament_installer::AmentInstaller::new(
         install_base.clone(),
         "test-pkg".to_string(),
         project_root.clone(),
@@ -121,7 +121,7 @@ install_to_include = ["include"]
     .unwrap();
 
     // Create installer
-    let installer = cargo_ros2::ament_installer::AmentInstaller::new(
+    let installer = cargo_nano_ros::ament_installer::AmentInstaller::new(
         install_base.clone(),
         "test-pkg".to_string(),
         project_root.clone(),
@@ -188,7 +188,7 @@ install_to_lib = ["scripts"]
     .unwrap();
 
     // Create installer
-    let installer = cargo_ros2::ament_installer::AmentInstaller::new(
+    let installer = cargo_nano_ros::ament_installer::AmentInstaller::new(
         install_base.clone(),
         "test-pkg".to_string(),
         project_root.clone(),
@@ -254,7 +254,7 @@ install_to_share = ["README.md"]
     .unwrap();
 
     // Create installer
-    let installer = cargo_ros2::ament_installer::AmentInstaller::new(
+    let installer = cargo_nano_ros::ament_installer::AmentInstaller::new(
         install_base.clone(),
         "test-pkg".to_string(),
         project_root.clone(),
@@ -320,7 +320,7 @@ install_to_include = ["mylib.h"]
     .unwrap();
 
     // Create installer
-    let installer = cargo_ros2::ament_installer::AmentInstaller::new(
+    let installer = cargo_nano_ros::ament_installer::AmentInstaller::new(
         install_base.clone(),
         "test-pkg".to_string(),
         project_root.clone(),
@@ -386,7 +386,7 @@ install_to_lib = ["setup.sh"]
     .unwrap();
 
     // Create installer
-    let installer = cargo_ros2::ament_installer::AmentInstaller::new(
+    let installer = cargo_nano_ros::ament_installer::AmentInstaller::new(
         install_base.clone(),
         "test-pkg".to_string(),
         project_root.clone(),
@@ -457,7 +457,7 @@ install_to_share = ["launch", "config", "README.md", "LICENSE"]
     .unwrap();
 
     // Create installer
-    let installer = cargo_ros2::ament_installer::AmentInstaller::new(
+    let installer = cargo_nano_ros::ament_installer::AmentInstaller::new(
         install_base.clone(),
         "test-pkg".to_string(),
         project_root.clone(),

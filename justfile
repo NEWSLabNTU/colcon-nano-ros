@@ -61,7 +61,7 @@ install-python:
 
 # Test Python code
 test-python:
-    pytest packages/colcon-cargo-ros2/test/
+    python3 -m pytest packages/colcon-cargo-ros2/test/
 
 # Format Python code
 format-python:

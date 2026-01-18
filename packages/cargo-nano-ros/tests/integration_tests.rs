@@ -195,7 +195,7 @@ mod cache_tests {
 
         // After loading (which creates empty cache), it still shouldn't exist
         // until we save it
-        use cargo_ros2::cache::Cache;
+        use cargo_nano_ros::cache::Cache;
         let cache = Cache::load(&cache_file).unwrap();
 
         assert_eq!(cache.len(), 0);
@@ -207,7 +207,7 @@ mod cache_tests {
         let temp_dir = TempDir::new().unwrap();
         let cache_file = temp_dir.path().join(".ros2_bindgen_cache");
 
-        use cargo_ros2::cache::{Cache, CacheEntry};
+        use cargo_nano_ros::cache::{Cache, CacheEntry};
         use std::time::{SystemTime, UNIX_EPOCH};
 
         // Create and save cache
@@ -246,7 +246,7 @@ mod cache_tests {
         let cache_file = temp_dir.path().join(".ros2_bindgen_cache");
         let output_dir = temp_dir.path().join("output");
 
-        use cargo_ros2::cache::{Cache, CacheEntry};
+        use cargo_nano_ros::cache::{Cache, CacheEntry};
         use std::time::{SystemTime, UNIX_EPOCH};
 
         // Create output directory
@@ -287,7 +287,7 @@ mod cache_tests {
 
         // Note: NOT creating output directory
 
-        use cargo_ros2::cache::{Cache, CacheEntry};
+        use cargo_nano_ros::cache::{Cache, CacheEntry};
         use std::time::{SystemTime, UNIX_EPOCH};
 
         let mut cache = Cache::load(&cache_file).unwrap();
@@ -323,7 +323,7 @@ mod config_patcher_tests {
     fn test_create_new_config() {
         let temp_dir = TempDir::new().unwrap();
 
-        use cargo_ros2::config_patcher::ConfigPatcher;
+        use cargo_nano_ros::config_patcher::ConfigPatcher;
 
         let patcher = ConfigPatcher::new(temp_dir.path()).unwrap();
 
@@ -359,7 +359,7 @@ mod config_patcher_tests {
         )
         .unwrap();
 
-        use cargo_ros2::config_patcher::ConfigPatcher;
+        use cargo_nano_ros::config_patcher::ConfigPatcher;
 
         let mut patcher = ConfigPatcher::new(temp_dir.path()).unwrap();
 
@@ -377,7 +377,7 @@ mod config_patcher_tests {
     fn test_update_existing_patch() {
         let temp_dir = TempDir::new().unwrap();
 
-        use cargo_ros2::config_patcher::ConfigPatcher;
+        use cargo_nano_ros::config_patcher::ConfigPatcher;
 
         let mut patcher = ConfigPatcher::new(temp_dir.path()).unwrap();
 
@@ -404,7 +404,7 @@ mod config_patcher_tests {
     fn test_remove_patch() {
         let temp_dir = TempDir::new().unwrap();
 
-        use cargo_ros2::config_patcher::ConfigPatcher;
+        use cargo_nano_ros::config_patcher::ConfigPatcher;
 
         let mut patcher = ConfigPatcher::new(temp_dir.path()).unwrap();
 
@@ -440,7 +440,7 @@ mod dependency_parser_tests {
         // Copy project with non-ROS deps
         copy_test_project("project_with_deps", temp_dir.path()).unwrap();
 
-        use cargo_ros2::dependency_parser::DependencyParser;
+        use cargo_nano_ros::dependency_parser::DependencyParser;
         use std::collections::HashSet;
 
         let mut known_ros = HashSet::new();
@@ -459,7 +459,7 @@ mod dependency_parser_tests {
         // Copy basic project fixture
         copy_test_project("basic_project", temp_dir.path()).unwrap();
 
-        use cargo_ros2::dependency_parser::DependencyParser;
+        use cargo_nano_ros::dependency_parser::DependencyParser;
         use std::collections::HashSet;
 
         let parser = DependencyParser::new(HashSet::new());
@@ -479,7 +479,7 @@ mod error_tests {
 
         // Don't create Cargo.toml
 
-        use cargo_ros2::dependency_parser::DependencyParser;
+        use cargo_nano_ros::dependency_parser::DependencyParser;
         use std::collections::HashSet;
 
         let parser = DependencyParser::new(HashSet::new());
@@ -526,7 +526,7 @@ mod cli_tests {
     fn test_cache_list_empty() {
         let temp_dir = TempDir::new().unwrap();
 
-        use cargo_ros2::cache::Cache;
+        use cargo_nano_ros::cache::Cache;
 
         // Empty cache
         let cache = Cache::load(&temp_dir.path().join(".ros2_bindgen_cache")).unwrap();
@@ -538,7 +538,7 @@ mod cli_tests {
         let temp_dir = TempDir::new().unwrap();
         let cache_file = temp_dir.path().join(".ros2_bindgen_cache");
 
-        use cargo_ros2::cache::{Cache, CacheEntry};
+        use cargo_nano_ros::cache::{Cache, CacheEntry};
         use std::time::{SystemTime, UNIX_EPOCH};
 
         let mut cache = Cache::load(&cache_file).unwrap();
@@ -589,7 +589,7 @@ mod cli_tests {
         let temp_dir = TempDir::new().unwrap();
         let cache_file = temp_dir.path().join(".ros2_bindgen_cache");
 
-        use cargo_ros2::cache::{Cache, CacheEntry};
+        use cargo_nano_ros::cache::{Cache, CacheEntry};
         use std::time::{SystemTime, UNIX_EPOCH};
 
         let mut cache = Cache::load(&cache_file).unwrap();
@@ -628,7 +628,7 @@ mod cli_tests {
         let temp_dir = TempDir::new().unwrap();
         let cache_file = temp_dir.path().join(".ros2_bindgen_cache");
 
-        use cargo_ros2::cache::{Cache, CacheEntry};
+        use cargo_nano_ros::cache::{Cache, CacheEntry};
         use std::time::{SystemTime, UNIX_EPOCH};
 
         let mut cache = Cache::load(&cache_file).unwrap();

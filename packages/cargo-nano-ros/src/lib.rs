@@ -108,10 +108,12 @@ pub fn generate_from_package_xml(config: GenerateConfig) -> Result<()> {
     }
 
     // Load ament index
-    let index = AmentIndex::from_env().wrap_err("Failed to load ament index (is ROS 2 sourced?)")?;
+    let index =
+        AmentIndex::from_env().wrap_err("Failed to load ament index (is ROS 2 sourced?)")?;
 
     // Resolve all dependencies (including transitive)
-    let all_deps = resolve_transitive_dependencies(&index, pkg_xml.all_dependencies(), config.verbose)?;
+    let all_deps =
+        resolve_transitive_dependencies(&index, pkg_xml.all_dependencies(), config.verbose)?;
 
     if config.verbose {
         println!("Resolved {} total dependencies", all_deps.len());
@@ -281,7 +283,11 @@ fn generate_cargo_config(
     // Add message package patches
     for pkg in packages {
         let pkg_path = output_dir.join(pkg);
-        patches.push_str(&format!("{} = {{ path = \"{}\" }}\n", pkg, pkg_path.display()));
+        patches.push_str(&format!(
+            "{} = {{ path = \"{}\" }}\n",
+            pkg,
+            pkg_path.display()
+        ));
     }
 
     // Write or append to config.toml

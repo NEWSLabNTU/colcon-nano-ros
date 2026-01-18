@@ -3,6 +3,20 @@ use rosidl_parser::idl::ast::ConstantValue as IdlConstantValue;
 use rosidl_parser::idl::types::IdlType;
 use rosidl_parser::FieldType;
 
+/// Code generation backend selection
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum CodegenBackend {
+    /// rclrs backend - generates two-layer types (RMW + idiomatic) with C FFI
+    /// Requires rosidl_runtime_rs and links against ROS 2 C libraries
+    #[default]
+    Rclrs,
+
+    /// nano-ros backend - generates single-layer pure Rust types
+    /// Uses heapless collections for no_std compatibility
+    /// No C dependencies, suitable for embedded RTOS platforms
+    NanoRos,
+}
+
 /// Extension trait for FieldType providing type checking methods
 pub trait FieldTypeExt {
     /// Check if this is a sequence (unbounded or bounded)
@@ -429,6 +443,113 @@ pub fn rust_type_for_constant(field_type: &FieldType) -> String {
             max_size: _,
         } => {
             let elem = rust_type_for_constant(element_type);
+            format!("&'static [{}]", elem)
+        }
+
+        FieldType::NamespacedType { package, name } => {
+            if let Some(pkg) = package {
+                format!("{}::msg::{}", pkg, name)
+            } else {
+                format!("crate::msg::{}", name)
+            }
+        }
+    }
+}
+
+// ============================================================================
+// nano-ros Type Mapping
+// ============================================================================
+
+/// Default string capacity for nano-ros heapless strings
+pub const NANO_ROS_DEFAULT_STRING_CAPACITY: usize = 256;
+
+/// Default sequence capacity for nano-ros heapless vectors
+pub const NANO_ROS_DEFAULT_SEQUENCE_CAPACITY: usize = 64;
+
+/// Get the Rust type string for a field type using nano-ros backend
+/// Returns heapless types for no_std compatibility
+/// `current_package` is used to detect self-references and use `crate::` instead of `pkg::`
+pub fn nano_ros_type_for_field(field_type: &FieldType, current_package: Option<&str>) -> String {
+    match field_type {
+        FieldType::Primitive(prim) => prim.rust_type().to_string(),
+
+        FieldType::String => {
+            format!("heapless::String<{}>", NANO_ROS_DEFAULT_STRING_CAPACITY)
+        }
+
+        FieldType::BoundedString(size) => {
+            format!("heapless::String<{}>", size)
+        }
+
+        FieldType::WString => {
+            // WString maps to regular heapless::String (UTF-8)
+            format!("heapless::String<{}>", NANO_ROS_DEFAULT_STRING_CAPACITY)
+        }
+
+        FieldType::BoundedWString(size) => {
+            format!("heapless::String<{}>", size)
+        }
+
+        FieldType::Array { element_type, size } => {
+            let elem = nano_ros_type_for_field(element_type, current_package);
+            format!("[{}; {}]", elem, size)
+        }
+
+        FieldType::Sequence { element_type } => {
+            let elem = nano_ros_type_for_field(element_type, current_package);
+            format!(
+                "heapless::Vec<{}, {}>",
+                elem, NANO_ROS_DEFAULT_SEQUENCE_CAPACITY
+            )
+        }
+
+        FieldType::BoundedSequence {
+            element_type,
+            max_size,
+        } => {
+            let elem = nano_ros_type_for_field(element_type, current_package);
+            format!("heapless::Vec<{}, {}>", elem, max_size)
+        }
+
+        FieldType::NamespacedType { package, name } => {
+            // Check if this is a self-reference (same package referencing itself)
+            let is_self_ref = package.as_deref() == current_package;
+
+            if let Some(pkg) = package {
+                if is_self_ref {
+                    // Self-reference: use crate::
+                    format!("crate::msg::{}", name)
+                } else {
+                    // Cross-package reference
+                    format!("{}::msg::{}", pkg, name)
+                }
+            } else {
+                // Local same-package type reference (no package specified)
+                format!("crate::msg::{}", name)
+            }
+        }
+    }
+}
+
+/// Get the Rust type string for a constant using nano-ros backend
+/// Similar to `nano_ros_type_for_field` but uses `&'static str` for string types
+pub fn nano_ros_type_for_constant(field_type: &FieldType) -> String {
+    match field_type {
+        FieldType::Primitive(prim) => prim.rust_type().to_string(),
+
+        // All string types become &'static str for constants
+        FieldType::String
+        | FieldType::BoundedString(_)
+        | FieldType::WString
+        | FieldType::BoundedWString(_) => "&'static str".to_string(),
+
+        FieldType::Array { element_type, size } => {
+            let elem = nano_ros_type_for_constant(element_type);
+            format!("[{}; {}]", elem, size)
+        }
+
+        FieldType::Sequence { element_type } | FieldType::BoundedSequence { element_type, .. } => {
+            let elem = nano_ros_type_for_constant(element_type);
             format!("&'static [{}]", elem)
         }
 

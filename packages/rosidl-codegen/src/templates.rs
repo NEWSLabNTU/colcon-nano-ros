@@ -153,3 +153,66 @@ pub struct ActionIdiomaticTemplate<'a> {
     pub feedback_fields: Vec<IdiomaticField>,
     pub feedback_constants: Vec<MessageConstant>,
 }
+
+// ============================================================================
+// nano-ros Templates
+// ============================================================================
+
+/// Field metadata for nano-ros code generation
+#[derive(Debug, Clone)]
+pub struct NanoRosField {
+    pub name: String,
+    pub rust_type: String,
+    /// CDR primitive method name (e.g., "i32", "f64", "u8") - empty if not primitive
+    pub primitive_method: String,
+    /// For arrays/sequences: element primitive method - empty if not primitive element
+    pub element_primitive_method: String,
+    /// Array size for fixed arrays - 0 if not an array
+    pub array_size: usize,
+
+    // Type flags for template conditionals
+    pub is_primitive: bool,
+    pub is_string: bool,
+    pub is_array: bool,
+    pub is_sequence: bool,
+    pub is_nested: bool,
+    pub is_primitive_element: bool,
+    pub is_string_element: bool,
+}
+
+#[derive(Template)]
+#[template(path = "message_nano_ros.rs.jinja", escape = "none")]
+pub struct MessageNanoRosTemplate<'a> {
+    pub package_name: &'a str,
+    pub message_name: &'a str,
+    pub type_hash: &'a str,
+    pub fields: Vec<NanoRosField>,
+    pub constants: Vec<MessageConstant>,
+}
+
+#[derive(Template)]
+#[template(path = "service_nano_ros.rs.jinja", escape = "none")]
+pub struct ServiceNanoRosTemplate<'a> {
+    pub package_name: &'a str,
+    pub service_name: &'a str,
+    pub type_hash: &'a str,
+    pub request_fields: Vec<NanoRosField>,
+    pub request_constants: Vec<MessageConstant>,
+    pub response_fields: Vec<NanoRosField>,
+    pub response_constants: Vec<MessageConstant>,
+}
+
+#[derive(Template)]
+#[template(path = "cargo_nano_ros.toml.jinja", escape = "none")]
+pub struct CargoNanoRosTomlTemplate<'a> {
+    pub package_name: &'a str,
+    pub package_version: &'a str,
+    pub dependencies: &'a [String],
+}
+
+#[derive(Template)]
+#[template(path = "lib_nano_ros.rs.jinja", escape = "none")]
+pub struct LibNanoRosRsTemplate {
+    pub has_messages: bool,
+    pub has_services: bool,
+}

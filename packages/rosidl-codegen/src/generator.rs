@@ -1,10 +1,12 @@
 use crate::templates::{
-    ActionIdiomaticTemplate, ActionRmwTemplate, BuildRsTemplate, CargoTomlTemplate, FieldKind,
-    IdiomaticField, LibRsTemplate, MessageConstant, MessageIdiomaticTemplate, MessageRmwTemplate,
-    RmwField, ServiceIdiomaticTemplate, ServiceRmwTemplate,
+    ActionIdiomaticTemplate, ActionRmwTemplate, BuildRsTemplate, CargoNanoRosTomlTemplate,
+    CargoTomlTemplate, FieldKind, IdiomaticField, LibNanoRosRsTemplate, LibRsTemplate,
+    MessageConstant, MessageIdiomaticTemplate, MessageNanoRosTemplate, MessageRmwTemplate,
+    NanoRosField, RmwField, ServiceIdiomaticTemplate, ServiceNanoRosTemplate, ServiceRmwTemplate,
 };
 use crate::types::{
-    constant_value_to_rust, escape_keyword, rust_type_for_constant, rust_type_for_field,
+    constant_value_to_rust, escape_keyword, nano_ros_type_for_constant, nano_ros_type_for_field,
+    rust_type_for_constant, rust_type_for_field,
 };
 use crate::utils::{extract_dependencies, needs_big_array, to_snake_case};
 use askama::Template;
@@ -466,6 +468,269 @@ pub fn generate_action_package(
     })
 }
 
+// ============================================================================
+// nano-ros Backend Generator Functions
+// ============================================================================
+
+/// Generated nano-ros message package
+pub struct GeneratedNanoRosPackage {
+    pub cargo_toml: String,
+    pub lib_rs: String,
+    pub message_rs: String,
+}
+
+/// Generated nano-ros service package
+pub struct GeneratedNanoRosServicePackage {
+    pub cargo_toml: String,
+    pub lib_rs: String,
+    pub service_rs: String,
+}
+
+/// Get the CDR primitive method name for a primitive type
+fn primitive_to_cdr_method(prim: &rosidl_parser::PrimitiveType) -> String {
+    use rosidl_parser::PrimitiveType;
+    match prim {
+        PrimitiveType::Bool => "bool".to_string(),
+        PrimitiveType::Byte => "u8".to_string(),
+        PrimitiveType::Char => "u8".to_string(),
+        PrimitiveType::Int8 => "i8".to_string(),
+        PrimitiveType::UInt8 => "u8".to_string(),
+        PrimitiveType::Int16 => "i16".to_string(),
+        PrimitiveType::UInt16 => "u16".to_string(),
+        PrimitiveType::Int32 => "i32".to_string(),
+        PrimitiveType::UInt32 => "u32".to_string(),
+        PrimitiveType::Int64 => "i64".to_string(),
+        PrimitiveType::UInt64 => "u64".to_string(),
+        PrimitiveType::Float32 => "f32".to_string(),
+        PrimitiveType::Float64 => "f64".to_string(),
+    }
+}
+
+/// Convert a Message field to NanoRosField
+fn field_to_nano_ros_field(field: &rosidl_parser::Field, package_name: &str) -> NanoRosField {
+    let name = escape_keyword(&field.name);
+    let rust_type = nano_ros_type_for_field(&field.field_type, Some(package_name));
+
+    // Determine field properties
+    let (is_primitive, primitive_method) = match &field.field_type {
+        FieldType::Primitive(prim) => (true, primitive_to_cdr_method(prim)),
+        _ => (false, String::new()),
+    };
+
+    let is_string = matches!(
+        &field.field_type,
+        FieldType::String
+            | FieldType::BoundedString(_)
+            | FieldType::WString
+            | FieldType::BoundedWString(_)
+    );
+
+    let (is_array, array_size) = match &field.field_type {
+        FieldType::Array { size, .. } => (true, *size),
+        _ => (false, 0),
+    };
+
+    let is_sequence = matches!(
+        &field.field_type,
+        FieldType::Sequence { .. } | FieldType::BoundedSequence { .. }
+    );
+
+    let is_nested = matches!(&field.field_type, FieldType::NamespacedType { .. });
+
+    // Element type info for arrays and sequences
+    let (is_primitive_element, is_string_element, element_primitive_method) =
+        match &field.field_type {
+            FieldType::Array { element_type, .. }
+            | FieldType::Sequence { element_type }
+            | FieldType::BoundedSequence { element_type, .. } => match element_type.as_ref() {
+                FieldType::Primitive(prim) => (true, false, primitive_to_cdr_method(prim)),
+                FieldType::String
+                | FieldType::BoundedString(_)
+                | FieldType::WString
+                | FieldType::BoundedWString(_) => (false, true, String::new()),
+                _ => (false, false, String::new()),
+            },
+            _ => (false, false, String::new()),
+        };
+
+    NanoRosField {
+        name,
+        rust_type,
+        primitive_method,
+        element_primitive_method,
+        array_size,
+        is_primitive,
+        is_string,
+        is_array,
+        is_sequence,
+        is_nested,
+        is_primitive_element,
+        is_string_element,
+    }
+}
+
+/// Generate a nano-ros message package
+pub fn generate_nano_ros_message_package(
+    package_name: &str,
+    message_name: &str,
+    message: &Message,
+    all_dependencies: &HashSet<String>,
+    package_version: &str,
+) -> Result<GeneratedNanoRosPackage, GeneratorError> {
+    // Extract dependencies from this specific message
+    let msg_deps = extract_dependencies(message);
+
+    // Combine with externally provided dependencies
+    let mut all_deps: Vec<String> = all_dependencies.iter().cloned().collect();
+    all_deps.extend(msg_deps);
+    all_deps.sort();
+    all_deps.dedup();
+
+    // Generate Cargo.toml
+    let cargo_toml_template = CargoNanoRosTomlTemplate {
+        package_name,
+        package_version,
+        dependencies: &all_deps,
+    };
+    let cargo_toml = cargo_toml_template.render()?;
+
+    // Generate lib.rs
+    let lib_rs_template = LibNanoRosRsTemplate {
+        has_messages: true,
+        has_services: false,
+    };
+    let lib_rs = lib_rs_template.render()?;
+
+    // Generate message fields
+    let fields: Vec<NanoRosField> = message
+        .fields
+        .iter()
+        .map(|f| field_to_nano_ros_field(f, package_name))
+        .collect();
+
+    // Generate constants
+    let constants: Vec<MessageConstant> = message
+        .constants
+        .iter()
+        .map(|c| MessageConstant {
+            name: c.name.clone(),
+            rust_type: nano_ros_type_for_constant(&c.constant_type),
+            value: constant_value_to_rust(&c.value),
+        })
+        .collect();
+
+    // For now, use a placeholder type hash (in production, compute from IDL)
+    let type_hash = "0000000000000000000000000000000000000000000000000000000000000000";
+
+    let message_template = MessageNanoRosTemplate {
+        package_name,
+        message_name,
+        type_hash,
+        fields,
+        constants,
+    };
+    let message_rs = message_template.render()?;
+
+    Ok(GeneratedNanoRosPackage {
+        cargo_toml,
+        lib_rs,
+        message_rs,
+    })
+}
+
+/// Generate a nano-ros service package
+pub fn generate_nano_ros_service_package(
+    package_name: &str,
+    service_name: &str,
+    service: &Service,
+    all_dependencies: &HashSet<String>,
+    package_version: &str,
+) -> Result<GeneratedNanoRosServicePackage, GeneratorError> {
+    // Extract dependencies from request and response
+    let mut req_deps = extract_dependencies(&service.request);
+    let resp_deps = extract_dependencies(&service.response);
+    req_deps.extend(resp_deps);
+
+    // Combine with externally provided dependencies
+    let mut all_deps: Vec<String> = all_dependencies.iter().cloned().collect();
+    all_deps.extend(req_deps);
+    all_deps.sort();
+    all_deps.dedup();
+
+    // Generate Cargo.toml
+    let cargo_toml_template = CargoNanoRosTomlTemplate {
+        package_name,
+        package_version,
+        dependencies: &all_deps,
+    };
+    let cargo_toml = cargo_toml_template.render()?;
+
+    // Generate lib.rs
+    let lib_rs_template = LibNanoRosRsTemplate {
+        has_messages: false,
+        has_services: true,
+    };
+    let lib_rs = lib_rs_template.render()?;
+
+    // Generate request fields
+    let request_fields: Vec<NanoRosField> = service
+        .request
+        .fields
+        .iter()
+        .map(|f| field_to_nano_ros_field(f, package_name))
+        .collect();
+
+    let request_constants: Vec<MessageConstant> = service
+        .request
+        .constants
+        .iter()
+        .map(|c| MessageConstant {
+            name: c.name.clone(),
+            rust_type: nano_ros_type_for_constant(&c.constant_type),
+            value: constant_value_to_rust(&c.value),
+        })
+        .collect();
+
+    // Generate response fields
+    let response_fields: Vec<NanoRosField> = service
+        .response
+        .fields
+        .iter()
+        .map(|f| field_to_nano_ros_field(f, package_name))
+        .collect();
+
+    let response_constants: Vec<MessageConstant> = service
+        .response
+        .constants
+        .iter()
+        .map(|c| MessageConstant {
+            name: c.name.clone(),
+            rust_type: nano_ros_type_for_constant(&c.constant_type),
+            value: constant_value_to_rust(&c.value),
+        })
+        .collect();
+
+    // For now, use a placeholder type hash
+    let type_hash = "0000000000000000000000000000000000000000000000000000000000000000";
+
+    let service_template = ServiceNanoRosTemplate {
+        package_name,
+        service_name,
+        type_hash,
+        request_fields,
+        request_constants,
+        response_fields,
+        response_constants,
+    };
+    let service_rs = service_template.render()?;
+
+    Ok(GeneratedNanoRosServicePackage {
+        cargo_toml,
+        lib_rs,
+        service_rs,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -595,5 +860,81 @@ mod tests {
 
         let pkg = result.unwrap();
         assert!(pkg.cargo_toml.contains("geometry_msgs"));
+    }
+
+    // ========================================================================
+    // nano-ros Backend Tests
+    // ========================================================================
+
+    #[test]
+    fn test_nano_ros_simple_message_generation() {
+        let msg = parse_message("int32 x\nfloat64 y\nstring name\n").unwrap();
+        let deps = HashSet::new();
+
+        let result = generate_nano_ros_message_package("test_msgs", "Point", &msg, &deps, "0.1.0");
+        assert!(result.is_ok());
+
+        let pkg = result.unwrap();
+
+        // Check Cargo.toml has nano-ros dependencies
+        assert!(pkg.cargo_toml.contains("nano-ros-core"));
+        assert!(pkg.cargo_toml.contains("nano-ros-serdes"));
+        assert!(pkg.cargo_toml.contains("heapless"));
+
+        // Check lib.rs is no_std
+        assert!(pkg.lib_rs.contains("#![no_std]"));
+        assert!(pkg.lib_rs.contains("pub mod msg"));
+
+        // Check message contains proper types
+        assert!(pkg.message_rs.contains("pub x: i32"));
+        assert!(pkg.message_rs.contains("pub y: f64"));
+        assert!(pkg.message_rs.contains("heapless::String<256>"));
+
+        // Check it has Serialize/Deserialize implementations
+        assert!(pkg.message_rs.contains("impl Serialize for Point"));
+        assert!(pkg.message_rs.contains("impl Deserialize for Point"));
+        assert!(pkg.message_rs.contains("impl RosMessage for Point"));
+    }
+
+    #[test]
+    fn test_nano_ros_message_with_sequence() {
+        let msg = parse_message("int32[] data\n").unwrap();
+        let deps = HashSet::new();
+
+        let result =
+            generate_nano_ros_message_package("test_msgs", "IntArray", &msg, &deps, "0.1.0");
+        assert!(result.is_ok());
+
+        let pkg = result.unwrap();
+        // Check sequence uses heapless::Vec
+        assert!(pkg.message_rs.contains("heapless::Vec<i32"));
+    }
+
+    #[test]
+    fn test_nano_ros_service_generation() {
+        let srv = parse_service("int64 a\nint64 b\n---\nint64 sum\n").unwrap();
+        let deps = HashSet::new();
+
+        let result =
+            generate_nano_ros_service_package("test_srvs", "AddTwoInts", &srv, &deps, "0.1.0");
+        assert!(result.is_ok());
+
+        let pkg = result.unwrap();
+
+        // Check Cargo.toml
+        assert!(pkg.cargo_toml.contains("nano-ros-core"));
+
+        // Check lib.rs
+        assert!(pkg.lib_rs.contains("pub mod srv"));
+
+        // Check service types
+        assert!(pkg.service_rs.contains("AddTwoIntsRequest"));
+        assert!(pkg.service_rs.contains("AddTwoIntsResponse"));
+        assert!(pkg.service_rs.contains("pub a: i64"));
+        assert!(pkg.service_rs.contains("pub b: i64"));
+        assert!(pkg.service_rs.contains("pub sum: i64"));
+
+        // Check RosService impl
+        assert!(pkg.service_rs.contains("impl RosService for AddTwoInts"));
     }
 }

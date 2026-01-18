@@ -3,9 +3,9 @@ requires = ["maturin>=1.9,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "colcon-cargo-ros2"
-version = "0.3.3"
-description = "Extension for colcon to build Rust ROS 2 packages with automatic binding generation and ament installation"
+name = "colcon-nano-ros"
+version = "0.4.0"
+description = "Extension for colcon to build nano-ros packages with automatic message type generation"
 readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "Apache-2.0" }
@@ -48,24 +48,24 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/jerry73204/colcon-cargo-ros2"
-Repository = "https://github.com/jerry73204/colcon-cargo-ros2"
-Documentation = "https://github.com/jerry73204/colcon-cargo-ros2#readme"
-Issues = "https://github.com/jerry73204/colcon-cargo-ros2/issues"
-Changelog = "https://github.com/jerry73204/colcon-cargo-ros2/releases"
+Homepage = "https://github.com/azewiusz/colcon-nano-ros"
+Repository = "https://github.com/azewiusz/colcon-nano-ros"
+Documentation = "https://github.com/azewiusz/colcon-nano-ros#readme"
+Issues = "https://github.com/azewiusz/colcon-nano-ros/issues"
+Changelog = "https://github.com/azewiusz/colcon-nano-ros/releases"
 
 [project.entry-points."colcon_core.package_augmentation"]
-"ros.ament_cargo" = "colcon_cargo_ros2.package_augmentation:RustBindingAugmentation"
+"ros.ament_cargo" = "colcon_nano_ros.package_augmentation:RustBindingAugmentation"
 
 [project.entry-points."colcon_core.task.build"]
-"ros.ament_cargo" = "colcon_cargo_ros2.task.ament_cargo.build:AmentCargoBuildTask"
+"ros.ament_cargo" = "colcon_nano_ros.task.ament_cargo.build:AmentCargoBuildTask"
 
 [project.entry-points."colcon_core.task.test"]
-"ros.ament_cargo" = "colcon_cargo_ros2.task.ament_cargo.test:AmentCargoTestTask"
+"ros.ament_cargo" = "colcon_nano_ros.task.ament_cargo.test:AmentCargoTestTask"
 
 [tool.maturin]
 bindings = "pyo3"
 manifest-path = "Cargo.toml"
-module-name = "colcon_cargo_ros2.cargo_ros2_py"
+module-name = "colcon_nano_ros.cargo_ros2_py"
 python-source = "."
 strip = true

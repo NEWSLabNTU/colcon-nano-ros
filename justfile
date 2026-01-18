@@ -1,4 +1,4 @@
-# Combined Rust + Python justfile for colcon-cargo-ros2
+# Combined Rust + Python justfile for colcon-nano-ros
 
 # Default recipe - show available commands
 default:
@@ -68,14 +68,14 @@ format-python:
     #!/usr/bin/env bash
     set -e
     cd packages/colcon-cargo-ros2
-    ruff format colcon_cargo_ros2/ test/
+    ruff format colcon_nano_ros/ test/
 
 # Lint Python code
 check-python:
     #!/usr/bin/env bash
     set -e
     cd packages/colcon-cargo-ros2
-    ruff check colcon_cargo_ros2/ test/
+    ruff check colcon_nano_ros/ test/
 
 # === VERSION MANAGEMENT ===
 

@@ -18,6 +18,7 @@ pub struct {{ message_name }} {
 }
 
 impl Serialize for {{ message_name }} {
+    {% if has_fields %}
     fn serialize(&self, writer: &mut CdrWriter) -> Result<(), SerError> {
         {% for field in fields %}
         {% if field.is_primitive %}
@@ -51,9 +52,16 @@ impl Serialize for {{ message_name }} {
         {% endfor %}
         Ok(())
     }
+    {% else %}
+    // Empty message - no fields to serialize
+    fn serialize(&self, _writer: &mut CdrWriter) -> Result<(), SerError> {
+        Ok(())
+    }
+    {% endif %}
 }
 
 impl Deserialize for {{ message_name }} {
+    {% if has_fields %}
     fn deserialize(reader: &mut CdrReader) -> Result<Self, DeserError> {
         Ok(Self {
             {% for field in fields %}
@@ -101,6 +109,12 @@ impl Deserialize for {{ message_name }} {
             {% endfor %}
         })
     }
+    {% else %}
+    // Empty message - no fields to deserialize
+    fn deserialize(_reader: &mut CdrReader) -> Result<Self, DeserError> {
+        Ok(Self {})
+    }
+    {% endif %}
 }
 
 impl RosMessage for {{ message_name }} {

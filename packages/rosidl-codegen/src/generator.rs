@@ -622,12 +622,14 @@ pub fn generate_nano_ros_message_package(
     // For now, use a placeholder type hash (in production, compute from IDL)
     let type_hash = "0000000000000000000000000000000000000000000000000000000000000000";
 
+    let has_fields = !fields.is_empty();
     let message_template = MessageNanoRosTemplate {
         package_name,
         message_name,
         type_hash,
         fields,
         constants,
+        has_fields,
     };
     let message_rs = message_template.render()?;
 
@@ -713,6 +715,8 @@ pub fn generate_nano_ros_service_package(
     // For now, use a placeholder type hash
     let type_hash = "0000000000000000000000000000000000000000000000000000000000000000";
 
+    let has_request_fields = !request_fields.is_empty();
+    let has_response_fields = !response_fields.is_empty();
     let service_template = ServiceNanoRosTemplate {
         package_name,
         service_name,
@@ -721,6 +725,8 @@ pub fn generate_nano_ros_service_package(
         request_constants,
         response_fields,
         response_constants,
+        has_request_fields,
+        has_response_fields,
     };
     let service_rs = service_template.render()?;
 

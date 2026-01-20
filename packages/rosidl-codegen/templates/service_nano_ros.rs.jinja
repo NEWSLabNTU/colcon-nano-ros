@@ -18,6 +18,7 @@ pub struct {{ service_name }}Request {
 }
 
 impl Serialize for {{ service_name }}Request {
+    {% if has_request_fields %}
     fn serialize(&self, writer: &mut CdrWriter) -> Result<(), SerError> {
         {% for field in request_fields %}
         {% if field.is_primitive %}
@@ -51,9 +52,16 @@ impl Serialize for {{ service_name }}Request {
         {% endfor %}
         Ok(())
     }
+    {% else %}
+    // Empty request - no fields to serialize
+    fn serialize(&self, _writer: &mut CdrWriter) -> Result<(), SerError> {
+        Ok(())
+    }
+    {% endif %}
 }
 
 impl Deserialize for {{ service_name }}Request {
+    {% if has_request_fields %}
     fn deserialize(reader: &mut CdrReader) -> Result<Self, DeserError> {
         Ok(Self {
             {% for field in request_fields %}
@@ -101,6 +109,12 @@ impl Deserialize for {{ service_name }}Request {
             {% endfor %}
         })
     }
+    {% else %}
+    // Empty request - no fields to deserialize
+    fn deserialize(_reader: &mut CdrReader) -> Result<Self, DeserError> {
+        Ok(Self {})
+    }
+    {% endif %}
 }
 
 impl RosMessage for {{ service_name }}Request {
@@ -121,6 +135,7 @@ pub struct {{ service_name }}Response {
 }
 
 impl Serialize for {{ service_name }}Response {
+    {% if has_response_fields %}
     fn serialize(&self, writer: &mut CdrWriter) -> Result<(), SerError> {
         {% for field in response_fields %}
         {% if field.is_primitive %}
@@ -154,9 +169,16 @@ impl Serialize for {{ service_name }}Response {
         {% endfor %}
         Ok(())
     }
+    {% else %}
+    // Empty response - no fields to serialize
+    fn serialize(&self, _writer: &mut CdrWriter) -> Result<(), SerError> {
+        Ok(())
+    }
+    {% endif %}
 }
 
 impl Deserialize for {{ service_name }}Response {
+    {% if has_response_fields %}
     fn deserialize(reader: &mut CdrReader) -> Result<Self, DeserError> {
         Ok(Self {
             {% for field in response_fields %}
@@ -204,6 +226,12 @@ impl Deserialize for {{ service_name }}Response {
             {% endfor %}
         })
     }
+    {% else %}
+    // Empty response - no fields to deserialize
+    fn deserialize(_reader: &mut CdrReader) -> Result<Self, DeserError> {
+        Ok(Self {})
+    }
+    {% endif %}
 }
 
 impl RosMessage for {{ service_name }}Response {

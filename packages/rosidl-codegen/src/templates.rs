@@ -188,6 +188,8 @@ pub struct MessageNanoRosTemplate<'a> {
     pub type_hash: &'a str,
     pub fields: Vec<NanoRosField>,
     pub constants: Vec<MessageConstant>,
+    /// True if there are fields to serialize/deserialize
+    pub has_fields: bool,
 }
 
 #[derive(Template)]
@@ -200,6 +202,10 @@ pub struct ServiceNanoRosTemplate<'a> {
     pub request_constants: Vec<MessageConstant>,
     pub response_fields: Vec<NanoRosField>,
     pub response_constants: Vec<MessageConstant>,
+    /// True if request has fields to serialize/deserialize
+    pub has_request_fields: bool,
+    /// True if response has fields to serialize/deserialize
+    pub has_response_fields: bool,
 }
 
 #[derive(Template)]

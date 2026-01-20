@@ -10,11 +10,11 @@ extern crate std;
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
+{%- if has_messages %}
 
-{% if has_messages %}
 pub mod msg;
-{% endif %}
+{%- endif %}
+{%- if has_services %}
 
-{% if has_services %}
 pub mod srv;
-{% endif %}
+{%- endif %}

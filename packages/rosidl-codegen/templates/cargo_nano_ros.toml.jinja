@@ -13,6 +13,6 @@ alloc = ["nano-ros-core/alloc", "nano-ros-serdes/alloc"]
 nano-ros-core = { version = "0.1", default-features = false }
 nano-ros-serdes = { version = "0.1", default-features = false }
 heapless = "0.8"
-{% for dep in dependencies %}
+{%- for dep in dependencies %}
 {{ dep }} = { version = "*", default-features = false }
-{% endfor %}
+{%- endfor %}

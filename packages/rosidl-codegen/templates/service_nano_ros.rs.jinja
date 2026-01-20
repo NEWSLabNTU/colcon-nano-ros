@@ -5,116 +5,116 @@
 use nano_ros_core::{RosMessage, RosService, Serialize, Deserialize};
 use nano_ros_serdes::{CdrReader, CdrWriter, SerError, DeserError};
 
-{% for constant in request_constants %}
+{%- for constant in request_constants %}
 pub const {{ constant.name }}: {{ constant.rust_type }} = {{ constant.value }};
-{% endfor %}
+{%- endfor %}
 
 /// {{ service_name }} request message
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct {{ service_name }}Request {
-    {% for field in request_fields %}
+{%- for field in request_fields %}
     pub {{ field.name }}: {{ field.rust_type }},
-    {% endfor %}
+{%- endfor %}
 }
 
 impl Serialize for {{ service_name }}Request {
-    {% if has_request_fields %}
+{%- if has_request_fields %}
     fn serialize(&self, writer: &mut CdrWriter) -> Result<(), SerError> {
-        {% for field in request_fields %}
-        {% if field.is_primitive %}
+{%- for field in request_fields %}
+{%- if field.is_primitive %}
         writer.write_{{ field.primitive_method }}(self.{{ field.name }})?;
-        {% else if field.is_string %}
+{%- else if field.is_string %}
         writer.write_string(self.{{ field.name }}.as_str())?;
-        {% else if field.is_array %}
+{%- else if field.is_array %}
         for item in &self.{{ field.name }} {
-            {% if field.is_primitive_element %}
+{%- if field.is_primitive_element %}
             writer.write_{{ field.element_primitive_method }}(*item)?;
-            {% else if field.is_string_element %}
+{%- else if field.is_string_element %}
             writer.write_string(item.as_str())?;
-            {% else %}
+{%- else %}
             item.serialize(writer)?;
-            {% endif %}
+{%- endif %}
         }
-        {% else if field.is_sequence %}
+{%- else if field.is_sequence %}
         writer.write_u32(self.{{ field.name }}.len() as u32)?;
         for item in &self.{{ field.name }} {
-            {% if field.is_primitive_element %}
+{%- if field.is_primitive_element %}
             writer.write_{{ field.element_primitive_method }}(*item)?;
-            {% else if field.is_string_element %}
+{%- else if field.is_string_element %}
             writer.write_string(item.as_str())?;
-            {% else %}
+{%- else %}
             item.serialize(writer)?;
-            {% endif %}
+{%- endif %}
         }
-        {% else %}
+{%- else %}
         self.{{ field.name }}.serialize(writer)?;
-        {% endif %}
-        {% endfor %}
+{%- endif %}
+{%- endfor %}
         Ok(())
     }
-    {% else %}
+{%- else %}
     // Empty request - no fields to serialize
     fn serialize(&self, _writer: &mut CdrWriter) -> Result<(), SerError> {
         Ok(())
     }
-    {% endif %}
+{%- endif %}
 }
 
 impl Deserialize for {{ service_name }}Request {
-    {% if has_request_fields %}
+{%- if has_request_fields %}
     fn deserialize(reader: &mut CdrReader) -> Result<Self, DeserError> {
         Ok(Self {
-            {% for field in request_fields %}
-            {% if field.is_primitive %}
+{%- for field in request_fields %}
+{%- if field.is_primitive %}
             {{ field.name }}: reader.read_{{ field.primitive_method }}()?,
-            {% else if field.is_string %}
+{%- else if field.is_string %}
             {{ field.name }}: {
                 let s = reader.read_string()?;
                 heapless::String::try_from(s).map_err(|_| DeserError::CapacityExceeded)?
             },
-            {% else if field.is_array %}
+{%- else if field.is_array %}
             {{ field.name }}: {
                 let mut arr: {{ field.rust_type }} = Default::default();
                 for i in 0..{{ field.array_size }} {
-                    {% if field.is_primitive_element %}
+{%- if field.is_primitive_element %}
                     arr[i] = reader.read_{{ field.element_primitive_method }}()?;
-                    {% else if field.is_string_element %}
+{%- else if field.is_string_element %}
                     let s = reader.read_string()?;
                     arr[i] = heapless::String::try_from(s).map_err(|_| DeserError::CapacityExceeded)?;
-                    {% else %}
+{%- else %}
                     arr[i] = Deserialize::deserialize(reader)?;
-                    {% endif %}
+{%- endif %}
                 }
                 arr
             },
-            {% else if field.is_sequence %}
+{%- else if field.is_sequence %}
             {{ field.name }}: {
                 let len = reader.read_u32()? as usize;
                 let mut vec = heapless::Vec::new();
                 for _ in 0..len {
-                    {% if field.is_primitive_element %}
+{%- if field.is_primitive_element %}
                     vec.push(reader.read_{{ field.element_primitive_method }}()?).map_err(|_| DeserError::CapacityExceeded)?;
-                    {% else if field.is_string_element %}
+{%- else if field.is_string_element %}
                     let s = reader.read_string()?;
                     vec.push(heapless::String::try_from(s).map_err(|_| DeserError::CapacityExceeded)?).map_err(|_| DeserError::CapacityExceeded)?;
-                    {% else %}
+{%- else %}
                     vec.push(Deserialize::deserialize(reader)?).map_err(|_| DeserError::CapacityExceeded)?;
-                    {% endif %}
+{%- endif %}
                 }
                 vec
             },
-            {% else %}
+{%- else %}
             {{ field.name }}: Deserialize::deserialize(reader)?,
-            {% endif %}
-            {% endfor %}
+{%- endif %}
+{%- endfor %}
         })
     }
-    {% else %}
+{%- else %}
     // Empty request - no fields to deserialize
     fn deserialize(_reader: &mut CdrReader) -> Result<Self, DeserError> {
         Ok(Self {})
     }
-    {% endif %}
+{%- endif %}
 }
 
 impl RosMessage for {{ service_name }}Request {
@@ -122,116 +122,116 @@ impl RosMessage for {{ service_name }}Request {
     const TYPE_HASH: &'static str = "RIHS01_{{ type_hash }}";
 }
 
-{% for constant in response_constants %}
+{%- for constant in response_constants %}
 pub const {{ constant.name }}: {{ constant.rust_type }} = {{ constant.value }};
-{% endfor %}
+{%- endfor %}
 
 /// {{ service_name }} response message
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct {{ service_name }}Response {
-    {% for field in response_fields %}
+{%- for field in response_fields %}
     pub {{ field.name }}: {{ field.rust_type }},
-    {% endfor %}
+{%- endfor %}
 }
 
 impl Serialize for {{ service_name }}Response {
-    {% if has_response_fields %}
+{%- if has_response_fields %}
     fn serialize(&self, writer: &mut CdrWriter) -> Result<(), SerError> {
-        {% for field in response_fields %}
-        {% if field.is_primitive %}
+{%- for field in response_fields %}
+{%- if field.is_primitive %}
         writer.write_{{ field.primitive_method }}(self.{{ field.name }})?;
-        {% else if field.is_string %}
+{%- else if field.is_string %}
         writer.write_string(self.{{ field.name }}.as_str())?;
-        {% else if field.is_array %}
+{%- else if field.is_array %}
         for item in &self.{{ field.name }} {
-            {% if field.is_primitive_element %}
+{%- if field.is_primitive_element %}
             writer.write_{{ field.element_primitive_method }}(*item)?;
-            {% else if field.is_string_element %}
+{%- else if field.is_string_element %}
             writer.write_string(item.as_str())?;
-            {% else %}
+{%- else %}
             item.serialize(writer)?;
-            {% endif %}
+{%- endif %}
         }
-        {% else if field.is_sequence %}
+{%- else if field.is_sequence %}
         writer.write_u32(self.{{ field.name }}.len() as u32)?;
         for item in &self.{{ field.name }} {
-            {% if field.is_primitive_element %}
+{%- if field.is_primitive_element %}
             writer.write_{{ field.element_primitive_method }}(*item)?;
-            {% else if field.is_string_element %}
+{%- else if field.is_string_element %}
             writer.write_string(item.as_str())?;
-            {% else %}
+{%- else %}
             item.serialize(writer)?;
-            {% endif %}
+{%- endif %}
         }
-        {% else %}
+{%- else %}
         self.{{ field.name }}.serialize(writer)?;
-        {% endif %}
-        {% endfor %}
+{%- endif %}
+{%- endfor %}
         Ok(())
     }
-    {% else %}
+{%- else %}
     // Empty response - no fields to serialize
     fn serialize(&self, _writer: &mut CdrWriter) -> Result<(), SerError> {
         Ok(())
     }
-    {% endif %}
+{%- endif %}
 }
 
 impl Deserialize for {{ service_name }}Response {
-    {% if has_response_fields %}
+{%- if has_response_fields %}
     fn deserialize(reader: &mut CdrReader) -> Result<Self, DeserError> {
         Ok(Self {
-            {% for field in response_fields %}
-            {% if field.is_primitive %}
+{%- for field in response_fields %}
+{%- if field.is_primitive %}
             {{ field.name }}: reader.read_{{ field.primitive_method }}()?,
-            {% else if field.is_string %}
+{%- else if field.is_string %}
             {{ field.name }}: {
                 let s = reader.read_string()?;
                 heapless::String::try_from(s).map_err(|_| DeserError::CapacityExceeded)?
             },
-            {% else if field.is_array %}
+{%- else if field.is_array %}
             {{ field.name }}: {
                 let mut arr: {{ field.rust_type }} = Default::default();
                 for i in 0..{{ field.array_size }} {
-                    {% if field.is_primitive_element %}
+{%- if field.is_primitive_element %}
                     arr[i] = reader.read_{{ field.element_primitive_method }}()?;
-                    {% else if field.is_string_element %}
+{%- else if field.is_string_element %}
                     let s = reader.read_string()?;
                     arr[i] = heapless::String::try_from(s).map_err(|_| DeserError::CapacityExceeded)?;
-                    {% else %}
+{%- else %}
                     arr[i] = Deserialize::deserialize(reader)?;
-                    {% endif %}
+{%- endif %}
                 }
                 arr
             },
-            {% else if field.is_sequence %}
+{%- else if field.is_sequence %}
             {{ field.name }}: {
                 let len = reader.read_u32()? as usize;
                 let mut vec = heapless::Vec::new();
                 for _ in 0..len {
-                    {% if field.is_primitive_element %}
+{%- if field.is_primitive_element %}
                     vec.push(reader.read_{{ field.element_primitive_method }}()?).map_err(|_| DeserError::CapacityExceeded)?;
-                    {% else if field.is_string_element %}
+{%- else if field.is_string_element %}
                     let s = reader.read_string()?;
                     vec.push(heapless::String::try_from(s).map_err(|_| DeserError::CapacityExceeded)?).map_err(|_| DeserError::CapacityExceeded)?;
-                    {% else %}
+{%- else %}
                     vec.push(Deserialize::deserialize(reader)?).map_err(|_| DeserError::CapacityExceeded)?;
-                    {% endif %}
+{%- endif %}
                 }
                 vec
             },
-            {% else %}
+{%- else %}
             {{ field.name }}: Deserialize::deserialize(reader)?,
-            {% endif %}
-            {% endfor %}
+{%- endif %}
+{%- endfor %}
         })
     }
-    {% else %}
+{%- else %}
     // Empty response - no fields to deserialize
     fn deserialize(_reader: &mut CdrReader) -> Result<Self, DeserError> {
         Ok(Self {})
     }
-    {% endif %}
+{%- endif %}
 }
 
 impl RosMessage for {{ service_name }}Response {

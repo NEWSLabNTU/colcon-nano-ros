@@ -551,8 +551,8 @@ fn generate_umbrella_header(
     content.push_str(&format!("#ifndef {}\n", guard_name));
     content.push_str(&format!("#define {}\n\n", guard_name));
 
-    // Include nano_ros.h
-    content.push_str("#include <nano_ros.h>\n\n");
+    // Include nano-ros core types (modular header)
+    content.push_str("#include <nano_ros/types.h>\n\n");
 
     // Include dependency headers
     if !dependencies.is_empty() {

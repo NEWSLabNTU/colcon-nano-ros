@@ -10,6 +10,9 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+// Forward declaration for type support
+typedef struct nano_ros_message_type_t nano_ros_message_type_t;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -47,15 +50,15 @@ static inline const char* {{ struct_name }}_get_type_hash(void) {
 void {{ struct_name }}_init({{ struct_name }}* msg);
 
 /// Serialize a {{ message_name }} message to CDR format
-/// Returns the number of bytes written, or -1 on error
-int32_t {{ struct_name }}_serialize(const {{ struct_name }}* msg, uint8_t* buffer, size_t buffer_size);
+/// Returns 0 on success, -1 on error. On success, *serialized_size contains bytes written.
+int32_t {{ struct_name }}_serialize(const {{ struct_name }}* msg, uint8_t* buffer, size_t buffer_size, size_t* serialized_size);
 
 /// Deserialize a {{ message_name }} message from CDR format
 /// Returns 0 on success, -1 on error
 int32_t {{ struct_name }}_deserialize({{ struct_name }}* msg, const uint8_t* buffer, size_t buffer_size);
 
 /// Get the nano_ros_message_type_t for this message type
-const struct nano_ros_message_type_t* {{ struct_name }}_get_type_support(void);
+const nano_ros_message_type_t* {{ struct_name }}_get_type_support(void);
 
 #ifdef __cplusplus
 }

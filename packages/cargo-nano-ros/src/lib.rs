@@ -85,6 +85,15 @@ pub struct InstallConfig {
     pub verbose: bool,
 }
 
+/// Configuration for C code generation
+#[derive(Debug, Clone)]
+pub struct GenerateCConfig {
+    /// Path to JSON arguments file
+    pub args_file: PathBuf,
+    /// Enable verbose output
+    pub verbose: bool,
+}
+
 /// Generate bindings from package.xml dependencies
 ///
 /// This is the main entry point for standalone usage. It:
@@ -354,6 +363,239 @@ pub fn generate_bindings(config: BindgenConfig) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Arguments structure for C code generation (parsed from JSON)
+#[derive(Debug, serde::Deserialize)]
+struct GenerateCArgs {
+    package_name: String,
+    output_dir: PathBuf,
+    interface_files: Vec<PathBuf>,
+    #[serde(default)]
+    dependencies: Vec<String>,
+}
+
+/// Generate C bindings from an arguments file
+///
+/// This is called by the CMake `nano_ros_generate_interfaces()` function.
+/// It reads a JSON arguments file and generates C code for each interface.
+pub fn generate_c_from_args_file(config: GenerateCConfig) -> Result<()> {
+    // Read and parse arguments file
+    let args_content = std::fs::read_to_string(&config.args_file)
+        .wrap_err_with(|| format!("Failed to read args file: {}", config.args_file.display()))?;
+
+    let args: GenerateCArgs = serde_json::from_str(&args_content)
+        .wrap_err_with(|| format!("Failed to parse args file: {}", config.args_file.display()))?;
+
+    if config.verbose {
+        println!("Generating C bindings for package: {}", args.package_name);
+        println!("Output directory: {}", args.output_dir.display());
+        println!("Interface files: {:?}", args.interface_files);
+        println!("Dependencies: {:?}", args.dependencies);
+    }
+
+    // Create output directories
+    let msg_dir = args.output_dir.join("msg");
+    let srv_dir = args.output_dir.join("srv");
+    let action_dir = args.output_dir.join("action");
+    std::fs::create_dir_all(&msg_dir)?;
+    std::fs::create_dir_all(&srv_dir)?;
+    std::fs::create_dir_all(&action_dir)?;
+
+    // Track generated files for umbrella header
+    let mut msg_headers = Vec::new();
+    let mut srv_headers = Vec::new();
+    let mut action_headers = Vec::new();
+
+    // Process each interface file
+    for file_path in &args.interface_files {
+        let extension = file_path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("");
+
+        let file_name = file_path
+            .file_stem()
+            .and_then(|n| n.to_str())
+            .ok_or_else(|| eyre!("Invalid interface file name: {}", file_path.display()))?;
+
+        // Read file content
+        let content = std::fs::read_to_string(file_path)
+            .wrap_err_with(|| format!("Failed to read interface file: {}", file_path.display()))?;
+
+        // Generate placeholder type hash (in production, compute from IDL)
+        let type_hash = "0000000000000000000000000000000000000000000000000000000000000000";
+
+        match extension {
+            "msg" => {
+                let parsed = rosidl_parser::parse_message(&content)
+                    .wrap_err_with(|| format!("Failed to parse message: {}", file_name))?;
+
+                let generated = rosidl_codegen::generate_c_message_package(
+                    &args.package_name,
+                    file_name,
+                    &parsed,
+                    type_hash,
+                )
+                .wrap_err_with(|| format!("Failed to generate C code for message: {}", file_name))?;
+
+                // Write header and source
+                let header_path = msg_dir.join(&generated.header_name);
+                let source_path = msg_dir.join(&generated.source_name);
+                std::fs::write(&header_path, &generated.header)?;
+                std::fs::write(&source_path, &generated.source)?;
+
+                msg_headers.push(generated.header_name);
+
+                if config.verbose {
+                    println!("  Generated message: {}", file_name);
+                }
+            }
+            "srv" => {
+                let parsed = rosidl_parser::parse_service(&content)
+                    .wrap_err_with(|| format!("Failed to parse service: {}", file_name))?;
+
+                let generated = rosidl_codegen::generate_c_service_package(
+                    &args.package_name,
+                    file_name,
+                    &parsed,
+                    type_hash,
+                )
+                .wrap_err_with(|| format!("Failed to generate C code for service: {}", file_name))?;
+
+                // Write header and source
+                let header_path = srv_dir.join(&generated.header_name);
+                let source_path = srv_dir.join(&generated.source_name);
+                std::fs::write(&header_path, &generated.header)?;
+                std::fs::write(&source_path, &generated.source)?;
+
+                srv_headers.push(generated.header_name);
+
+                if config.verbose {
+                    println!("  Generated service: {}", file_name);
+                }
+            }
+            "action" => {
+                let parsed = rosidl_parser::parse_action(&content)
+                    .wrap_err_with(|| format!("Failed to parse action: {}", file_name))?;
+
+                let generated = rosidl_codegen::generate_c_action_package(
+                    &args.package_name,
+                    file_name,
+                    &parsed,
+                    type_hash,
+                )
+                .wrap_err_with(|| format!("Failed to generate C code for action: {}", file_name))?;
+
+                // Write header and source
+                let header_path = action_dir.join(&generated.header_name);
+                let source_path = action_dir.join(&generated.source_name);
+                std::fs::write(&header_path, &generated.header)?;
+                std::fs::write(&source_path, &generated.source)?;
+
+                action_headers.push(generated.header_name);
+
+                if config.verbose {
+                    println!("  Generated action: {}", file_name);
+                }
+            }
+            _ => {
+                return Err(eyre!(
+                    "Unknown interface file type: {} (expected .msg, .srv, or .action)",
+                    file_path.display()
+                ));
+            }
+        }
+    }
+
+    // Generate umbrella header
+    let umbrella_header = generate_umbrella_header(
+        &args.package_name,
+        &msg_headers,
+        &srv_headers,
+        &action_headers,
+        &args.dependencies,
+    );
+    let umbrella_path = args.output_dir.join(format!("{}.h", args.package_name));
+    std::fs::write(&umbrella_path, umbrella_header)?;
+
+    if config.verbose {
+        println!("  Generated umbrella header: {}.h", args.package_name);
+    }
+
+    println!(
+        "✓ Generated {} messages, {} services, {} actions for {}",
+        msg_headers.len(),
+        srv_headers.len(),
+        action_headers.len(),
+        args.package_name
+    );
+
+    Ok(())
+}
+
+/// Generate umbrella header that includes all generated headers
+fn generate_umbrella_header(
+    package_name: &str,
+    msg_headers: &[String],
+    srv_headers: &[String],
+    action_headers: &[String],
+    dependencies: &[String],
+) -> String {
+    let guard_name = format!(
+        "{}_H",
+        package_name.to_uppercase().replace('-', "_")
+    );
+
+    let mut content = String::new();
+
+    // Header guard
+    content.push_str(&format!("#ifndef {}\n", guard_name));
+    content.push_str(&format!("#define {}\n\n", guard_name));
+
+    // Include nano_ros.h
+    content.push_str("#include <nano_ros.h>\n\n");
+
+    // Include dependency headers
+    if !dependencies.is_empty() {
+        content.push_str("// Dependencies\n");
+        for dep in dependencies {
+            content.push_str(&format!("#include <{}.h>\n", dep));
+        }
+        content.push('\n');
+    }
+
+    // Include message headers
+    if !msg_headers.is_empty() {
+        content.push_str("// Messages\n");
+        for header in msg_headers {
+            content.push_str(&format!("#include \"msg/{}\"\n", header));
+        }
+        content.push('\n');
+    }
+
+    // Include service headers
+    if !srv_headers.is_empty() {
+        content.push_str("// Services\n");
+        for header in srv_headers {
+            content.push_str(&format!("#include \"srv/{}\"\n", header));
+        }
+        content.push('\n');
+    }
+
+    // Include action headers
+    if !action_headers.is_empty() {
+        content.push_str("// Actions\n");
+        for header in action_headers {
+            content.push_str(&format!("#include \"action/{}\"\n", header));
+        }
+        content.push('\n');
+    }
+
+    // End header guard
+    content.push_str(&format!("#endif  // {}\n", guard_name));
+
+    content
 }
 
 /// Clean generated bindings

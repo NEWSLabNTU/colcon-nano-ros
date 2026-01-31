@@ -56,6 +56,16 @@ enum NanoRosCommand {
         force: bool,
     },
 
+    /// Generate C bindings for interface files (.msg, .srv, .action)
+    ///
+    /// Generates C code for use with nano-ros-c library. Called by
+    /// nano_ros_generate_interfaces() CMake function.
+    GenerateC {
+        /// Path to JSON arguments file
+        #[arg(long)]
+        args_file: PathBuf,
+    },
+
     /// Generate bindings for a single ROS 2 package (low-level)
     Bindgen {
         /// ROS package name
@@ -103,6 +113,15 @@ fn main() -> Result<()> {
                 verbose: args.verbose,
             };
             cargo_nano_ros::generate_from_package_xml(cfg)?;
+        }
+
+        NanoRosCommand::GenerateC { args_file } => {
+            let cfg = cargo_nano_ros::GenerateCConfig {
+                args_file,
+                verbose: args.verbose,
+            };
+            cargo_nano_ros::generate_c_from_args_file(cfg)?;
+            println!("✓ C bindings generated successfully");
         }
 
         NanoRosCommand::Bindgen {

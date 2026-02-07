@@ -20,6 +20,8 @@
 //!     manifest_path: PathBuf::from("package.xml"),
 //!     output_dir: PathBuf::from("generated"),
 //!     generate_config: true,
+//!     nano_ros_path: None,
+//!     nano_ros_git: false,
 //!     force: false,
 //!     verbose: false,
 //! };
@@ -51,6 +53,8 @@ pub struct GenerateConfig {
     pub generate_config: bool,
     /// Path to nano-ros crates directory (for config patches)
     pub nano_ros_path: Option<PathBuf>,
+    /// Use nano-ros git repository for config patches
+    pub nano_ros_git: bool,
     /// Overwrite existing bindings
     pub force: bool,
     /// Enable verbose output
@@ -178,6 +182,7 @@ pub fn generate_from_package_xml(config: GenerateConfig) -> Result<()> {
             &config.output_dir,
             &generated_packages,
             config.nano_ros_path.as_deref(),
+            config.nano_ros_git,
             config.verbose,
         )?;
     }
@@ -266,6 +271,7 @@ fn generate_cargo_config(
     output_dir: &Path,
     packages: &[String],
     nano_ros_path: Option<&Path>,
+    nano_ros_git: bool,
     verbose: bool,
 ) -> Result<()> {
     let cargo_dir = Path::new(".cargo");
@@ -277,8 +283,9 @@ fn generate_cargo_config(
     let mut patches = String::new();
     patches.push_str("[patch.crates-io]\n");
 
-    // Add nano-ros crate patches if path provided
+    // Add nano-ros crate patches
     if let Some(crates_path) = nano_ros_path {
+        // Path-based patches (for local development)
         patches.push_str(&format!(
             "nano-ros-core = {{ path = \"{}\" }}\n",
             crates_path.join("nano-ros-core").display()
@@ -286,6 +293,17 @@ fn generate_cargo_config(
         patches.push_str(&format!(
             "nano-ros-serdes = {{ path = \"{}\" }}\n",
             crates_path.join("nano-ros-serdes").display()
+        ));
+    } else if nano_ros_git {
+        // Git-based patches (for external users)
+        let git_url = "https://github.com/jerry73204/nano-ros";
+        patches.push_str(&format!(
+            "nano-ros-core = {{ git = \"{}\" }}\n",
+            git_url
+        ));
+        patches.push_str(&format!(
+            "nano-ros-serdes = {{ git = \"{}\" }}\n",
+            git_url
         ));
     }
 
@@ -322,7 +340,7 @@ fn generate_cargo_config(
     }
 
     if verbose {
-        let nano_count = if nano_ros_path.is_some() { 2 } else { 0 };
+        let nano_count = if nano_ros_path.is_some() || nano_ros_git { 2 } else { 0 };
         println!(
             "Generated .cargo/config.toml with {} patch entries",
             packages.len() + nano_count

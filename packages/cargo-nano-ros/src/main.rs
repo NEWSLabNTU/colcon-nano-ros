@@ -48,8 +48,13 @@ enum NanoRosCommand {
 
         /// Path to nano-ros crates directory (for config patches)
         /// If not specified, nano-ros crates will use crates.io (requires published crates)
-        #[arg(long)]
+        #[arg(long, conflicts_with = "nano_ros_git")]
         nano_ros_path: Option<PathBuf>,
+
+        /// Use nano-ros git repository for config patches
+        /// Generates [patch.crates-io] entries pointing to the nano-ros git repository
+        #[arg(long, conflicts_with = "nano_ros_path")]
+        nano_ros_git: bool,
 
         /// Overwrite existing bindings
         #[arg(long)]
@@ -102,6 +107,7 @@ fn main() -> Result<()> {
             output,
             config,
             nano_ros_path,
+            nano_ros_git,
             force,
         } => {
             let cfg = GenerateConfig {
@@ -109,6 +115,7 @@ fn main() -> Result<()> {
                 output_dir: output,
                 generate_config: config,
                 nano_ros_path,
+                nano_ros_git,
                 force,
                 verbose: args.verbose,
             };

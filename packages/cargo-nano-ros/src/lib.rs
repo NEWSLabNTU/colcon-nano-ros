@@ -42,6 +42,10 @@ use rosidl_bindgen::ament::{AmentIndex, Package};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
+/// Path to bundled interface files relative to the cargo-nano-ros crate root.
+/// These are shipped with nano-ros so codegen works without a ROS 2 environment.
+const BUNDLED_INTERFACES_DIR: &str = "interfaces";
+
 /// Configuration for generating bindings from package.xml
 #[derive(Debug, Clone)]
 pub struct GenerateConfig {
@@ -120,9 +124,8 @@ pub fn generate_from_package_xml(config: GenerateConfig) -> Result<()> {
         );
     }
 
-    // Load ament index
-    let index =
-        AmentIndex::from_env().wrap_err("Failed to load ament index (is ROS 2 sourced?)")?;
+    // Load ament index (with bundled interface fallback)
+    let index = load_index_with_fallback(config.verbose)?;
 
     // Resolve all dependencies (including transitive)
     let all_deps =
@@ -194,6 +197,89 @@ pub fn generate_from_package_xml(config: GenerateConfig) -> Result<()> {
     );
 
     Ok(())
+}
+
+/// Get the path to bundled interface files.
+///
+/// Searches for the `interfaces/` directory relative to the cargo-nano-ros
+/// crate manifest, then falls back to checking relative to the binary location.
+fn bundled_interfaces_dir() -> Option<PathBuf> {
+    // Try relative to CARGO_MANIFEST_DIR (works during cargo build)
+    if let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") {
+        let dir = PathBuf::from(manifest_dir)
+            .parent()
+            .and_then(|p| p.parent())
+            .map(|p| p.join(BUNDLED_INTERFACES_DIR));
+        if let Some(ref d) = dir
+            && d.exists()
+        {
+            return dir;
+        }
+    }
+
+    // Try relative to the running binary
+    if let Ok(exe) = std::env::current_exe() {
+        // Walk up from binary to find the colcon-nano-ros directory
+        let mut path = exe.as_path();
+        for _ in 0..6 {
+            if let Some(parent) = path.parent() {
+                let candidate = parent.join("colcon-nano-ros").join(BUNDLED_INTERFACES_DIR);
+                if candidate.exists() {
+                    return Some(candidate);
+                }
+                path = parent;
+            }
+        }
+    }
+
+    None
+}
+
+/// Load the ament index, merging bundled interfaces as fallback.
+///
+/// If a ROS 2 environment is sourced, the ament index takes precedence.
+/// Bundled interfaces (std_msgs, builtin_interfaces) fill in any gaps.
+fn load_index_with_fallback(verbose: bool) -> Result<AmentIndex> {
+    // Try ament index first
+    let mut index = match AmentIndex::from_env() {
+        Ok(idx) => {
+            if verbose {
+                println!("Loaded ament index ({} packages)", idx.package_count());
+            }
+            idx
+        }
+        Err(_) => {
+            if verbose {
+                println!("No ROS 2 environment detected, using bundled interfaces only");
+            }
+            AmentIndex::from_path_string("")?
+        }
+    };
+
+    // Merge bundled interfaces (ament packages take precedence)
+    if let Some(bundled_dir) = bundled_interfaces_dir() {
+        match AmentIndex::from_directory(&bundled_dir) {
+            Ok(bundled_index) => {
+                if verbose {
+                    println!(
+                        "Loaded {} bundled interface packages from {}",
+                        bundled_index.package_count(),
+                        bundled_dir.display()
+                    );
+                }
+                index.merge(bundled_index);
+            }
+            Err(e) => {
+                if verbose {
+                    eprintln!("Warning: failed to load bundled interfaces: {}", e);
+                }
+            }
+        }
+    } else if verbose {
+        eprintln!("Warning: bundled interfaces directory not found");
+    }
+
+    Ok(index)
 }
 
 /// Resolve transitive dependencies
@@ -319,15 +405,19 @@ pub fn generate_bindings(config: BindgenConfig) -> Result<()> {
         eprintln!("Generating bindings for {}...", config.package_name);
     }
 
-    // Get package either from path or ament index
+    // Get package either from path or ament index (with bundled fallback)
     let package = if let Some(share_path) = config.package_path {
         Package::from_share_dir(share_path)?
     } else {
-        let index =
-            AmentIndex::from_env().wrap_err("Failed to load ament index (is ROS 2 sourced?)")?;
+        let index = load_index_with_fallback(config.verbose)?;
         index
             .find_package(&config.package_name)
-            .ok_or_else(|| eyre!("Package '{}' not found in ament index", config.package_name))?
+            .ok_or_else(|| {
+                eyre!(
+                    "Package '{}' not found in ament index or bundled interfaces",
+                    config.package_name
+                )
+            })?
             .clone()
     };
 

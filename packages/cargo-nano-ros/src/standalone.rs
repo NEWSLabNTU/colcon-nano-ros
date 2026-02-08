@@ -1,6 +1,8 @@
-//! cargo-nano-ros: Standalone build tool for nano-ros
+//! nano-ros: Standalone build tool for nano-ros
 //!
-//! Generate ROS 2 message bindings from package.xml dependencies.
+//! This is the standalone binary that can be invoked directly as `nano-ros`.
+//! It provides the same functionality as `cargo nano-ros` but without
+//! requiring Cargo's subcommand infrastructure.
 
 use cargo_nano_ros::GenerateConfig;
 use clap::{Parser, Subcommand};
@@ -8,19 +10,13 @@ use eyre::Result;
 use std::path::PathBuf;
 
 /// Standalone build tool for nano-ros
-#[derive(Parser, Debug)]
-#[command(name = "cargo")]
-#[command(bin_name = "cargo")]
-enum CargoCli {
-    NanoRos(NanoRosArgs),
-}
-
 #[derive(Debug, Parser)]
 #[command(name = "nano-ros")]
-#[command(about = "Standalone build tool for nano-ros", long_about = None)]
-struct NanoRosArgs {
+#[command(about = "Build tool for nano-ros: generate message bindings from package.xml")]
+#[command(version)]
+struct Cli {
     #[command(subcommand)]
-    command: NanoRosCommand,
+    command: Command,
 
     /// Verbose output
     #[arg(short, long, global = true)]
@@ -28,7 +24,7 @@ struct NanoRosArgs {
 }
 
 #[derive(Debug, Subcommand)]
-enum NanoRosCommand {
+enum Command {
     /// Generate Rust bindings from package.xml dependencies
     ///
     /// Reads package.xml to discover ROS 2 interface dependencies,
@@ -137,10 +133,10 @@ fn run_generate(
 }
 
 fn main() -> Result<()> {
-    let CargoCli::NanoRos(args) = CargoCli::parse();
+    let cli = Cli::parse();
 
-    match args.command {
-        NanoRosCommand::GenerateRust {
+    match cli.command {
+        Command::GenerateRust {
             manifest_path,
             output,
             config,
@@ -148,7 +144,7 @@ fn main() -> Result<()> {
             nano_ros_git,
             force,
         }
-        | NanoRosCommand::Generate {
+        | Command::Generate {
             manifest_path,
             output,
             config,
@@ -163,20 +159,20 @@ fn main() -> Result<()> {
                 nano_ros_path,
                 nano_ros_git,
                 force,
-                args.verbose,
+                cli.verbose,
             )?;
         }
 
-        NanoRosCommand::GenerateC { args_file } => {
+        Command::GenerateC { args_file } => {
             let cfg = cargo_nano_ros::GenerateCConfig {
                 args_file,
-                verbose: args.verbose,
+                verbose: cli.verbose,
             };
             cargo_nano_ros::generate_c_from_args_file(cfg)?;
             println!("✓ C bindings generated successfully");
         }
 
-        NanoRosCommand::Bindgen {
+        Command::Bindgen {
             package,
             output,
             package_path,
@@ -185,14 +181,14 @@ fn main() -> Result<()> {
                 package_name: package,
                 package_path,
                 output_dir: output,
-                verbose: args.verbose,
+                verbose: cli.verbose,
             };
             cargo_nano_ros::generate_bindings(cfg)?;
             println!("✓ Bindings generated successfully");
         }
 
-        NanoRosCommand::Clean { output, config } => {
-            cargo_nano_ros::clean_generated(&output, config, args.verbose)?;
+        Command::Clean { output, config } => {
+            cargo_nano_ros::clean_generated(&output, config, cli.verbose)?;
             println!("✓ Cleaned successfully");
         }
     }

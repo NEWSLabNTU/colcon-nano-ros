@@ -466,66 +466,141 @@ pub const NANO_ROS_DEFAULT_STRING_CAPACITY: usize = 256;
 /// Default sequence capacity for nano-ros heapless vectors
 pub const NANO_ROS_DEFAULT_SEQUENCE_CAPACITY: usize = 64;
 
+/// Configuration for nano-ros code generation mode
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum NanoRosCodegenMode {
+    /// Crate mode: each package is a separate crate.
+    /// Self-refs use `crate::msg::Type`, cross-refs use `pkg::msg::Type`.
+    #[default]
+    Crate,
+    /// Inline mode: all packages in a single module tree (for build.rs).
+    /// Self-refs use `super::Type`, cross-refs use `super::super::super::pkg::msg::Type`.
+    /// Template uses `nano_ros_core::` prefix instead of direct imports.
+    Inline,
+}
+
 /// Get the Rust type string for a field type using nano-ros backend
 /// Returns heapless types for no_std compatibility
 /// `current_package` is used to detect self-references and use `crate::` instead of `pkg::`
 pub fn nano_ros_type_for_field(field_type: &FieldType, current_package: Option<&str>) -> String {
+    nano_ros_type_for_field_with_mode(field_type, current_package, NanoRosCodegenMode::Crate)
+}
+
+/// Get the Rust type string for a field type using nano-ros backend with explicit mode
+pub fn nano_ros_type_for_field_with_mode(
+    field_type: &FieldType,
+    current_package: Option<&str>,
+    mode: NanoRosCodegenMode,
+) -> String {
+    let inline = mode == NanoRosCodegenMode::Inline;
+
     match field_type {
         FieldType::Primitive(prim) => prim.rust_type().to_string(),
 
         FieldType::String => {
-            format!("heapless::String<{}>", NANO_ROS_DEFAULT_STRING_CAPACITY)
+            if inline {
+                format!(
+                    "nano_ros_core::heapless::String<{}>",
+                    NANO_ROS_DEFAULT_STRING_CAPACITY
+                )
+            } else {
+                format!("heapless::String<{}>", NANO_ROS_DEFAULT_STRING_CAPACITY)
+            }
         }
 
         FieldType::BoundedString(size) => {
-            format!("heapless::String<{}>", size)
+            if inline {
+                format!("nano_ros_core::heapless::String<{}>", size)
+            } else {
+                format!("heapless::String<{}>", size)
+            }
         }
 
         FieldType::WString => {
             // WString maps to regular heapless::String (UTF-8)
-            format!("heapless::String<{}>", NANO_ROS_DEFAULT_STRING_CAPACITY)
+            if inline {
+                format!(
+                    "nano_ros_core::heapless::String<{}>",
+                    NANO_ROS_DEFAULT_STRING_CAPACITY
+                )
+            } else {
+                format!("heapless::String<{}>", NANO_ROS_DEFAULT_STRING_CAPACITY)
+            }
         }
 
         FieldType::BoundedWString(size) => {
-            format!("heapless::String<{}>", size)
+            if inline {
+                format!("nano_ros_core::heapless::String<{}>", size)
+            } else {
+                format!("heapless::String<{}>", size)
+            }
         }
 
         FieldType::Array { element_type, size } => {
-            let elem = nano_ros_type_for_field(element_type, current_package);
+            let elem =
+                nano_ros_type_for_field_with_mode(element_type, current_package, mode);
             format!("[{}; {}]", elem, size)
         }
 
         FieldType::Sequence { element_type } => {
-            let elem = nano_ros_type_for_field(element_type, current_package);
-            format!(
-                "heapless::Vec<{}, {}>",
-                elem, NANO_ROS_DEFAULT_SEQUENCE_CAPACITY
-            )
+            let elem =
+                nano_ros_type_for_field_with_mode(element_type, current_package, mode);
+            if inline {
+                format!(
+                    "nano_ros_core::heapless::Vec<{}, {}>",
+                    elem, NANO_ROS_DEFAULT_SEQUENCE_CAPACITY
+                )
+            } else {
+                format!(
+                    "heapless::Vec<{}, {}>",
+                    elem, NANO_ROS_DEFAULT_SEQUENCE_CAPACITY
+                )
+            }
         }
 
         FieldType::BoundedSequence {
             element_type,
             max_size,
         } => {
-            let elem = nano_ros_type_for_field(element_type, current_package);
-            format!("heapless::Vec<{}, {}>", elem, max_size)
+            let elem =
+                nano_ros_type_for_field_with_mode(element_type, current_package, mode);
+            if inline {
+                format!("nano_ros_core::heapless::Vec<{}, {}>", elem, max_size)
+            } else {
+                format!("heapless::Vec<{}, {}>", elem, max_size)
+            }
         }
 
         FieldType::NamespacedType { package, name } => {
             // Check if this is a self-reference (same package referencing itself)
             let is_self_ref = package.as_deref() == current_package;
 
-            if let Some(pkg) = package {
-                if is_self_ref {
-                    // Self-reference: use crate::
-                    format!("crate::msg::{}", name)
+            if inline {
+                // Inline mode: use super-based references
+                // From a message file at <pkg>/msg/<type>.rs:
+                //   self-ref: super::<Type> (one level up to msg/)
+                //   cross-ref: super::super::super::<pkg>::msg::<Type> (up to root)
+                if let Some(pkg) = package {
+                    if is_self_ref {
+                        format!("super::{}", name)
+                    } else {
+                        format!("super::super::super::{}::msg::{}", pkg, name)
+                    }
                 } else {
-                    // Cross-package reference
-                    format!("{}::msg::{}", pkg, name)
+                    // Local same-package type reference
+                    format!("super::{}", name)
                 }
             } else {
-                // Local same-package type reference (no package specified)
-                format!("crate::msg::{}", name)
+                // Crate mode: use crate:: and pkg:: references
+                if let Some(pkg) = package {
+                    if is_self_ref {
+                        format!("crate::msg::{}", name)
+                    } else {
+                        format!("{}::msg::{}", pkg, name)
+                    }
+                } else {
+                    format!("crate::msg::{}", name)
+                }
             }
         }
     }

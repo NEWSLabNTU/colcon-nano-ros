@@ -258,6 +258,47 @@ impl AmentIndex {
         Ok(AmentIndex { packages })
     }
 
+    /// Create an AmentIndex from a directory containing package subdirectories.
+    ///
+    /// Each subdirectory should be a package share directory (containing msg/, srv/,
+    /// action/ subdirectories with .msg/.srv/.action files).
+    ///
+    /// This is used for bundled interfaces that ship with nano-ros, allowing codegen
+    /// to work without a ROS 2 environment.
+    pub fn from_directory(dir: &Path) -> Result<Self> {
+        let mut packages = HashMap::new();
+
+        if !dir.exists() {
+            return Ok(AmentIndex { packages });
+        }
+
+        for entry in std::fs::read_dir(dir)
+            .wrap_err_with(|| format!("Failed to read directory: {}", dir.display()))?
+        {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_dir()
+                && let Ok(package) = Package::from_share_dir(path)
+                && package.has_interfaces()
+            {
+                packages.insert(package.name.clone(), package);
+            }
+        }
+
+        Ok(AmentIndex { packages })
+    }
+
+    /// Merge another AmentIndex into this one.
+    ///
+    /// Packages from `other` are added only if they don't already exist in `self`.
+    /// This allows the ament index (from ROS 2 environment) to take precedence
+    /// over bundled interfaces.
+    pub fn merge(&mut self, other: AmentIndex) {
+        for (name, package) in other.packages {
+            self.packages.entry(name).or_insert(package);
+        }
+    }
+
     /// Find a package by name
     pub fn find_package(&self, name: &str) -> Option<&Package> {
         self.packages.get(name)

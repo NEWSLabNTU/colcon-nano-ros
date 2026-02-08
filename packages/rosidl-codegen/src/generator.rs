@@ -7,10 +7,11 @@ use crate::templates::{
     ServiceCSourceTemplate, ServiceIdiomaticTemplate, ServiceNanoRosTemplate, ServiceRmwTemplate,
 };
 use crate::types::{
-    C_DEFAULT_SEQUENCE_CAPACITY, c_array_suffix_for_field, c_cdr_read_method, c_cdr_write_method,
-    c_type_for_constant, c_type_for_field, constant_value_to_rust, escape_keyword,
-    nano_ros_type_for_constant, nano_ros_type_for_field, rust_type_for_constant,
-    rust_type_for_field, to_c_package_name,
+    C_DEFAULT_SEQUENCE_CAPACITY, NanoRosCodegenMode, c_array_suffix_for_field, c_cdr_read_method,
+    c_cdr_write_method, c_type_for_constant, c_type_for_field, constant_value_to_rust,
+    escape_keyword, nano_ros_type_for_constant, nano_ros_type_for_field,
+    nano_ros_type_for_field_with_mode, rust_type_for_constant, rust_type_for_field,
+    to_c_package_name,
 };
 use crate::utils::{extract_dependencies, needs_big_array, to_snake_case};
 use askama::Template;
@@ -510,10 +511,14 @@ fn primitive_to_cdr_method(prim: &rosidl_parser::PrimitiveType) -> String {
     }
 }
 
-/// Convert a Message field to NanoRosField
-fn field_to_nano_ros_field(field: &rosidl_parser::Field, package_name: &str) -> NanoRosField {
+/// Convert a Message field to NanoRosField with explicit codegen mode
+fn field_to_nano_ros_field_with_mode(
+    field: &rosidl_parser::Field,
+    package_name: &str,
+    mode: NanoRosCodegenMode,
+) -> NanoRosField {
     let name = escape_keyword(&field.name);
-    let rust_type = nano_ros_type_for_field(&field.field_type, Some(package_name));
+    let rust_type = nano_ros_type_for_field_with_mode(&field.field_type, Some(package_name), mode);
 
     // Determine field properties
     let (is_primitive, primitive_method) = match &field.field_type {
@@ -572,6 +577,12 @@ fn field_to_nano_ros_field(field: &rosidl_parser::Field, package_name: &str) -> 
         is_string_element,
     }
 }
+
+/// Convert a Message field to NanoRosField
+fn field_to_nano_ros_field(field: &rosidl_parser::Field, package_name: &str) -> NanoRosField {
+    field_to_nano_ros_field_with_mode(field, package_name, NanoRosCodegenMode::Crate)
+}
+
 
 /// Generate a nano-ros message package
 pub fn generate_nano_ros_message_package(
@@ -635,6 +646,7 @@ pub fn generate_nano_ros_message_package(
         fields,
         constants,
         has_fields,
+        inline_mode: false,
     };
     let message_rs = message_template.render()?;
 
@@ -733,6 +745,7 @@ pub fn generate_nano_ros_service_package(
         response_constants,
         has_request_fields,
         has_response_fields,
+        inline_mode: false,
     };
     let service_rs = service_template.render()?;
 
@@ -870,6 +883,7 @@ pub fn generate_nano_ros_action_package(
         has_goal_fields,
         has_result_fields,
         has_feedback_fields,
+        inline_mode: false,
     };
     let action_rs = action_template.render()?;
 
@@ -878,6 +892,209 @@ pub fn generate_nano_ros_action_package(
         lib_rs,
         action_rs,
     })
+}
+
+// ============================================================================
+// Inline Mode Generator Functions (for build.rs / nano-ros-build)
+// ============================================================================
+
+/// Generate a single message's Rust code in inline mode.
+///
+/// Unlike `generate_nano_ros_message_package`, this only returns the rendered
+/// message code (no Cargo.toml or lib.rs). Cross-package references use
+/// `super::super::super::pkg::msg::Type` paths.
+pub fn generate_nano_ros_inline_message(
+    package_name: &str,
+    message_name: &str,
+    message: &Message,
+) -> Result<String, GeneratorError> {
+    let mode = NanoRosCodegenMode::Inline;
+    let fields: Vec<NanoRosField> = message
+        .fields
+        .iter()
+        .map(|f| field_to_nano_ros_field_with_mode(f, package_name, mode))
+        .collect();
+
+    let constants: Vec<MessageConstant> = message
+        .constants
+        .iter()
+        .map(|c| MessageConstant {
+            name: c.name.clone(),
+            rust_type: nano_ros_type_for_constant(&c.constant_type),
+            value: constant_value_to_rust(&c.value),
+        })
+        .collect();
+
+    let type_hash = "0000000000000000000000000000000000000000000000000000000000000000";
+    let has_fields = !fields.is_empty();
+
+    let template = MessageNanoRosTemplate {
+        package_name,
+        message_name,
+        type_hash,
+        fields,
+        constants,
+        has_fields,
+        inline_mode: true,
+    };
+
+    Ok(template.render()?)
+}
+
+/// Generate a single service's Rust code in inline mode.
+pub fn generate_nano_ros_inline_service(
+    package_name: &str,
+    service_name: &str,
+    service: &Service,
+) -> Result<String, GeneratorError> {
+    let mode = NanoRosCodegenMode::Inline;
+
+    let request_fields: Vec<NanoRosField> = service
+        .request
+        .fields
+        .iter()
+        .map(|f| field_to_nano_ros_field_with_mode(f, package_name, mode))
+        .collect();
+
+    let request_constants: Vec<MessageConstant> = service
+        .request
+        .constants
+        .iter()
+        .map(|c| MessageConstant {
+            name: c.name.clone(),
+            rust_type: nano_ros_type_for_constant(&c.constant_type),
+            value: constant_value_to_rust(&c.value),
+        })
+        .collect();
+
+    let response_fields: Vec<NanoRosField> = service
+        .response
+        .fields
+        .iter()
+        .map(|f| field_to_nano_ros_field_with_mode(f, package_name, mode))
+        .collect();
+
+    let response_constants: Vec<MessageConstant> = service
+        .response
+        .constants
+        .iter()
+        .map(|c| MessageConstant {
+            name: c.name.clone(),
+            rust_type: nano_ros_type_for_constant(&c.constant_type),
+            value: constant_value_to_rust(&c.value),
+        })
+        .collect();
+
+    let type_hash = "0000000000000000000000000000000000000000000000000000000000000000";
+    let has_request_fields = !request_fields.is_empty();
+    let has_response_fields = !response_fields.is_empty();
+
+    let template = ServiceNanoRosTemplate {
+        package_name,
+        service_name,
+        type_hash,
+        request_fields,
+        request_constants,
+        response_fields,
+        response_constants,
+        has_request_fields,
+        has_response_fields,
+        inline_mode: true,
+    };
+
+    Ok(template.render()?)
+}
+
+/// Generate a single action's Rust code in inline mode.
+pub fn generate_nano_ros_inline_action(
+    package_name: &str,
+    action_name: &str,
+    action: &Action,
+) -> Result<String, GeneratorError> {
+    let mode = NanoRosCodegenMode::Inline;
+
+    let goal_fields: Vec<NanoRosField> = action
+        .spec
+        .goal
+        .fields
+        .iter()
+        .map(|f| field_to_nano_ros_field_with_mode(f, package_name, mode))
+        .collect();
+
+    let goal_constants: Vec<MessageConstant> = action
+        .spec
+        .goal
+        .constants
+        .iter()
+        .map(|c| MessageConstant {
+            name: c.name.clone(),
+            rust_type: nano_ros_type_for_constant(&c.constant_type),
+            value: constant_value_to_rust(&c.value),
+        })
+        .collect();
+
+    let result_fields: Vec<NanoRosField> = action
+        .spec
+        .result
+        .fields
+        .iter()
+        .map(|f| field_to_nano_ros_field_with_mode(f, package_name, mode))
+        .collect();
+
+    let result_constants: Vec<MessageConstant> = action
+        .spec
+        .result
+        .constants
+        .iter()
+        .map(|c| MessageConstant {
+            name: c.name.clone(),
+            rust_type: nano_ros_type_for_constant(&c.constant_type),
+            value: constant_value_to_rust(&c.value),
+        })
+        .collect();
+
+    let feedback_fields: Vec<NanoRosField> = action
+        .spec
+        .feedback
+        .fields
+        .iter()
+        .map(|f| field_to_nano_ros_field_with_mode(f, package_name, mode))
+        .collect();
+
+    let feedback_constants: Vec<MessageConstant> = action
+        .spec
+        .feedback
+        .constants
+        .iter()
+        .map(|c| MessageConstant {
+            name: c.name.clone(),
+            rust_type: nano_ros_type_for_constant(&c.constant_type),
+            value: constant_value_to_rust(&c.value),
+        })
+        .collect();
+
+    let type_hash = "0000000000000000000000000000000000000000000000000000000000000000";
+    let has_goal_fields = !goal_fields.is_empty();
+    let has_result_fields = !result_fields.is_empty();
+    let has_feedback_fields = !feedback_fields.is_empty();
+
+    let template = ActionNanoRosTemplate {
+        package_name,
+        action_name,
+        type_hash,
+        goal_fields,
+        goal_constants,
+        result_fields,
+        result_constants,
+        feedback_fields,
+        feedback_constants,
+        has_goal_fields,
+        has_result_fields,
+        has_feedback_fields,
+        inline_mode: true,
+    };
+
+    Ok(template.render()?)
 }
 
 // ============================================================================

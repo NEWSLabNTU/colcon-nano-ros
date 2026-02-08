@@ -1,9 +1,15 @@
 // nano-ros action type - pure Rust, no_std compatible
 // Package: {{ package_name }}
 // Action: {{ action_name }}
+{%- if inline_mode %}
+
+use nano_ros_core::{RosMessage, RosAction, Serialize, Deserialize};
+use nano_ros_core::{CdrReader, CdrWriter, SerError, DeserError};
+{%- else %}
 
 use nano_ros_core::{RosMessage, RosAction, Serialize, Deserialize};
 use nano_ros_serdes::{CdrReader, CdrWriter, SerError, DeserError};
+{%- endif %}
 
 // ============================================================================
 // Goal Message
@@ -74,7 +80,11 @@ impl Deserialize for {{ action_name }}Goal {
 {%- else if field.is_string %}
             {{ field.name }}: {
                 let s = reader.read_string()?;
+{%- if inline_mode %}
+                nano_ros_core::heapless::String::try_from(s).map_err(|_| DeserError::CapacityExceeded)?
+{%- else %}
                 heapless::String::try_from(s).map_err(|_| DeserError::CapacityExceeded)?
+{%- endif %}
             },
 {%- else if field.is_array %}
             {{ field.name }}: {
@@ -84,7 +94,11 @@ impl Deserialize for {{ action_name }}Goal {
                     arr[i] = reader.read_{{ field.element_primitive_method }}()?;
 {%- else if field.is_string_element %}
                     let s = reader.read_string()?;
+{%- if inline_mode %}
+                    arr[i] = nano_ros_core::heapless::String::try_from(s).map_err(|_| DeserError::CapacityExceeded)?;
+{%- else %}
                     arr[i] = heapless::String::try_from(s).map_err(|_| DeserError::CapacityExceeded)?;
+{%- endif %}
 {%- else %}
                     arr[i] = Deserialize::deserialize(reader)?;
 {%- endif %}
@@ -94,13 +108,21 @@ impl Deserialize for {{ action_name }}Goal {
 {%- else if field.is_sequence %}
             {{ field.name }}: {
                 let len = reader.read_u32()? as usize;
+{%- if inline_mode %}
+                let mut vec = nano_ros_core::heapless::Vec::new();
+{%- else %}
                 let mut vec = heapless::Vec::new();
+{%- endif %}
                 for _ in 0..len {
 {%- if field.is_primitive_element %}
                     vec.push(reader.read_{{ field.element_primitive_method }}()?).map_err(|_| DeserError::CapacityExceeded)?;
 {%- else if field.is_string_element %}
                     let s = reader.read_string()?;
+{%- if inline_mode %}
+                    vec.push(nano_ros_core::heapless::String::try_from(s).map_err(|_| DeserError::CapacityExceeded)?).map_err(|_| DeserError::CapacityExceeded)?;
+{%- else %}
                     vec.push(heapless::String::try_from(s).map_err(|_| DeserError::CapacityExceeded)?).map_err(|_| DeserError::CapacityExceeded)?;
+{%- endif %}
 {%- else %}
                     vec.push(Deserialize::deserialize(reader)?).map_err(|_| DeserError::CapacityExceeded)?;
 {%- endif %}
@@ -195,7 +217,11 @@ impl Deserialize for {{ action_name }}Result {
 {%- else if field.is_string %}
             {{ field.name }}: {
                 let s = reader.read_string()?;
+{%- if inline_mode %}
+                nano_ros_core::heapless::String::try_from(s).map_err(|_| DeserError::CapacityExceeded)?
+{%- else %}
                 heapless::String::try_from(s).map_err(|_| DeserError::CapacityExceeded)?
+{%- endif %}
             },
 {%- else if field.is_array %}
             {{ field.name }}: {
@@ -205,7 +231,11 @@ impl Deserialize for {{ action_name }}Result {
                     arr[i] = reader.read_{{ field.element_primitive_method }}()?;
 {%- else if field.is_string_element %}
                     let s = reader.read_string()?;
+{%- if inline_mode %}
+                    arr[i] = nano_ros_core::heapless::String::try_from(s).map_err(|_| DeserError::CapacityExceeded)?;
+{%- else %}
                     arr[i] = heapless::String::try_from(s).map_err(|_| DeserError::CapacityExceeded)?;
+{%- endif %}
 {%- else %}
                     arr[i] = Deserialize::deserialize(reader)?;
 {%- endif %}
@@ -215,13 +245,21 @@ impl Deserialize for {{ action_name }}Result {
 {%- else if field.is_sequence %}
             {{ field.name }}: {
                 let len = reader.read_u32()? as usize;
+{%- if inline_mode %}
+                let mut vec = nano_ros_core::heapless::Vec::new();
+{%- else %}
                 let mut vec = heapless::Vec::new();
+{%- endif %}
                 for _ in 0..len {
 {%- if field.is_primitive_element %}
                     vec.push(reader.read_{{ field.element_primitive_method }}()?).map_err(|_| DeserError::CapacityExceeded)?;
 {%- else if field.is_string_element %}
                     let s = reader.read_string()?;
+{%- if inline_mode %}
+                    vec.push(nano_ros_core::heapless::String::try_from(s).map_err(|_| DeserError::CapacityExceeded)?).map_err(|_| DeserError::CapacityExceeded)?;
+{%- else %}
                     vec.push(heapless::String::try_from(s).map_err(|_| DeserError::CapacityExceeded)?).map_err(|_| DeserError::CapacityExceeded)?;
+{%- endif %}
 {%- else %}
                     vec.push(Deserialize::deserialize(reader)?).map_err(|_| DeserError::CapacityExceeded)?;
 {%- endif %}
@@ -316,7 +354,11 @@ impl Deserialize for {{ action_name }}Feedback {
 {%- else if field.is_string %}
             {{ field.name }}: {
                 let s = reader.read_string()?;
+{%- if inline_mode %}
+                nano_ros_core::heapless::String::try_from(s).map_err(|_| DeserError::CapacityExceeded)?
+{%- else %}
                 heapless::String::try_from(s).map_err(|_| DeserError::CapacityExceeded)?
+{%- endif %}
             },
 {%- else if field.is_array %}
             {{ field.name }}: {
@@ -326,7 +368,11 @@ impl Deserialize for {{ action_name }}Feedback {
                     arr[i] = reader.read_{{ field.element_primitive_method }}()?;
 {%- else if field.is_string_element %}
                     let s = reader.read_string()?;
+{%- if inline_mode %}
+                    arr[i] = nano_ros_core::heapless::String::try_from(s).map_err(|_| DeserError::CapacityExceeded)?;
+{%- else %}
                     arr[i] = heapless::String::try_from(s).map_err(|_| DeserError::CapacityExceeded)?;
+{%- endif %}
 {%- else %}
                     arr[i] = Deserialize::deserialize(reader)?;
 {%- endif %}
@@ -336,13 +382,21 @@ impl Deserialize for {{ action_name }}Feedback {
 {%- else if field.is_sequence %}
             {{ field.name }}: {
                 let len = reader.read_u32()? as usize;
+{%- if inline_mode %}
+                let mut vec = nano_ros_core::heapless::Vec::new();
+{%- else %}
                 let mut vec = heapless::Vec::new();
+{%- endif %}
                 for _ in 0..len {
 {%- if field.is_primitive_element %}
                     vec.push(reader.read_{{ field.element_primitive_method }}()?).map_err(|_| DeserError::CapacityExceeded)?;
 {%- else if field.is_string_element %}
                     let s = reader.read_string()?;
+{%- if inline_mode %}
+                    vec.push(nano_ros_core::heapless::String::try_from(s).map_err(|_| DeserError::CapacityExceeded)?).map_err(|_| DeserError::CapacityExceeded)?;
+{%- else %}
                     vec.push(heapless::String::try_from(s).map_err(|_| DeserError::CapacityExceeded)?).map_err(|_| DeserError::CapacityExceeded)?;
+{%- endif %}
 {%- else %}
                     vec.push(Deserialize::deserialize(reader)?).map_err(|_| DeserError::CapacityExceeded)?;
 {%- endif %}

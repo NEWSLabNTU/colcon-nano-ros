@@ -172,18 +172,18 @@ impl WorkflowContext {
             .find(|p| p.join("Cargo.toml").exists())
             .map(|p| p.join("target").join("debug").join("rosidl-bindgen"));
 
-        if let Some(path) = dev_path {
-            if path.exists() {
-                return Ok(path);
-            }
+        if let Some(path) = dev_path
+            && path.exists()
+        {
+            return Ok(path);
         }
 
         // Try to find in PATH
-        if let Ok(output) = Command::new("which").arg("rosidl-bindgen").output() {
-            if output.status.success() {
-                let path_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                return Ok(PathBuf::from(path_str));
-            }
+        if let Ok(output) = Command::new("which").arg("rosidl-bindgen").output()
+            && output.status.success()
+        {
+            let path_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            return Ok(PathBuf::from(path_str));
         }
 
         Err(eyre!(
@@ -273,18 +273,18 @@ impl WorkflowContext {
             match self.generate_bindings(package_name) {
                 Ok(output_dir) => {
                     // Update cache
-                    if let Some(share_dir) = ament_packages.get(package_name) {
-                        if let Err(e) = self.update_cache_threadsafe(
+                    if let Some(share_dir) = ament_packages.get(package_name)
+                        && let Err(e) = self.update_cache_threadsafe(
                             package_name,
                             share_dir,
                             output_dir.clone(),
                             &cache_file,
-                        ) {
-                            errors.lock().unwrap().push(format!(
-                                "Failed to update cache for {}: {}",
-                                package_name, e
-                            ));
-                        }
+                        )
+                    {
+                        errors.lock().unwrap().push(format!(
+                            "Failed to update cache for {}: {}",
+                            package_name, e
+                        ));
                     }
 
                     results

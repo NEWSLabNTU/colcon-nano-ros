@@ -7,10 +7,10 @@ use crate::templates::{
     ServiceCSourceTemplate, ServiceIdiomaticTemplate, ServiceNanoRosTemplate, ServiceRmwTemplate,
 };
 use crate::types::{
-    c_array_suffix_for_field, c_cdr_read_method, c_cdr_write_method, c_type_for_constant,
-    c_type_for_field, constant_value_to_rust, escape_keyword, nano_ros_type_for_constant,
-    nano_ros_type_for_field, rust_type_for_constant, rust_type_for_field, to_c_package_name,
-    C_DEFAULT_SEQUENCE_CAPACITY,
+    C_DEFAULT_SEQUENCE_CAPACITY, c_array_suffix_for_field, c_cdr_read_method, c_cdr_write_method,
+    c_type_for_constant, c_type_for_field, constant_value_to_rust, escape_keyword,
+    nano_ros_type_for_constant, nano_ros_type_for_field, rust_type_for_constant,
+    rust_type_for_field, to_c_package_name,
 };
 use crate::utils::{extract_dependencies, needs_big_array, to_snake_case};
 use askama::Template;
@@ -1436,7 +1436,7 @@ fn build_c_field(name: &str, field_type: &FieldType, current_package: Option<&st
 mod tests {
     use super::*;
     use rosidl_parser::{
-        parse_action, parse_message, parse_service, Field, FieldType, PrimitiveType,
+        Field, FieldType, PrimitiveType, parse_action, parse_message, parse_service,
     };
 
     #[test]
@@ -1749,29 +1749,35 @@ mod tests {
 
         // Check header file
         assert!(pkg.header.contains("#ifndef TEST_SRVS_SRV_ADD_TWO_INTS_H"));
-        assert!(pkg
-            .header
-            .contains("typedef struct test_srvs_srv_add_two_ints_request"));
-        assert!(pkg
-            .header
-            .contains("typedef struct test_srvs_srv_add_two_ints_response"));
+        assert!(
+            pkg.header
+                .contains("typedef struct test_srvs_srv_add_two_ints_request")
+        );
+        assert!(
+            pkg.header
+                .contains("typedef struct test_srvs_srv_add_two_ints_response")
+        );
         assert!(pkg.header.contains("int32_t a"));
         assert!(pkg.header.contains("int32_t b"));
         assert!(pkg.header.contains("int32_t sum"));
 
         // Check source file
-        assert!(pkg
-            .source
-            .contains("test_srvs_srv_add_two_ints_request_init"));
-        assert!(pkg
-            .source
-            .contains("test_srvs_srv_add_two_ints_response_init"));
-        assert!(pkg
-            .source
-            .contains("test_srvs_srv_add_two_ints_request_serialize"));
-        assert!(pkg
-            .source
-            .contains("test_srvs_srv_add_two_ints_response_serialize"));
+        assert!(
+            pkg.source
+                .contains("test_srvs_srv_add_two_ints_request_init")
+        );
+        assert!(
+            pkg.source
+                .contains("test_srvs_srv_add_two_ints_response_init")
+        );
+        assert!(
+            pkg.source
+                .contains("test_srvs_srv_add_two_ints_request_serialize")
+        );
+        assert!(
+            pkg.source
+                .contains("test_srvs_srv_add_two_ints_response_serialize")
+        );
 
         // Check file names
         assert_eq!(pkg.header_name, "test_srvs_srv_add_two_ints.h");
@@ -1790,32 +1796,39 @@ mod tests {
         let pkg = result.unwrap();
 
         // Check header file
-        assert!(pkg
-            .header
-            .contains("#ifndef TEST_ACTIONS_ACTION_FIBONACCI_H"));
-        assert!(pkg
-            .header
-            .contains("typedef struct test_actions_action_fibonacci_goal"));
-        assert!(pkg
-            .header
-            .contains("typedef struct test_actions_action_fibonacci_result"));
-        assert!(pkg
-            .header
-            .contains("typedef struct test_actions_action_fibonacci_feedback"));
+        assert!(
+            pkg.header
+                .contains("#ifndef TEST_ACTIONS_ACTION_FIBONACCI_H")
+        );
+        assert!(
+            pkg.header
+                .contains("typedef struct test_actions_action_fibonacci_goal")
+        );
+        assert!(
+            pkg.header
+                .contains("typedef struct test_actions_action_fibonacci_result")
+        );
+        assert!(
+            pkg.header
+                .contains("typedef struct test_actions_action_fibonacci_feedback")
+        );
         assert!(pkg.header.contains("int32_t order"));
         assert!(pkg.header.contains("int32_t result_code"));
         assert!(pkg.header.contains("int32_t progress"));
 
         // Check source file
-        assert!(pkg
-            .source
-            .contains("test_actions_action_fibonacci_goal_init"));
-        assert!(pkg
-            .source
-            .contains("test_actions_action_fibonacci_result_init"));
-        assert!(pkg
-            .source
-            .contains("test_actions_action_fibonacci_feedback_init"));
+        assert!(
+            pkg.source
+                .contains("test_actions_action_fibonacci_goal_init")
+        );
+        assert!(
+            pkg.source
+                .contains("test_actions_action_fibonacci_result_init")
+        );
+        assert!(
+            pkg.source
+                .contains("test_actions_action_fibonacci_feedback_init")
+        );
 
         // Check file names
         assert_eq!(pkg.header_name, "test_actions_action_fibonacci.h");

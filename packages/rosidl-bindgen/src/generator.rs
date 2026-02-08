@@ -379,11 +379,13 @@ mod tests {
         assert!(pkg_dir.join("src").join("msg").join("mod.rs").exists());
         assert!(pkg_dir.join("src").join("msg").join("point.rs").exists());
         assert!(pkg_dir.join("src").join("srv").join("mod.rs").exists());
-        assert!(pkg_dir
-            .join("src")
-            .join("srv")
-            .join("add_two_ints.rs")
-            .exists());
+        assert!(
+            pkg_dir
+                .join("src")
+                .join("srv")
+                .join("add_two_ints.rs")
+                .exists()
+        );
 
         // Check there's no build.rs (no C library linking)
         assert!(!pkg_dir.join("build.rs").exists());
@@ -472,10 +474,12 @@ mod tests {
         assert!(!lib_rs.contains("pub mod srv"));
 
         // Check srv directory doesn't exist
-        assert!(!output_dir
-            .join("msgs_only")
-            .join("src")
-            .join("srv")
-            .exists());
+        assert!(
+            !output_dir
+                .join("msgs_only")
+                .join("src")
+                .join("srv")
+                .exists()
+        );
     }
 }

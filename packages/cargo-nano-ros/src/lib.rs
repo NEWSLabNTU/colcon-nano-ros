@@ -217,12 +217,12 @@ fn resolve_transitive_dependencies(
         if let Some(package) = index.find_package(&pkg_name) {
             // Get dependencies from package.xml in share directory
             let pkg_xml_path = package.share_dir.join("package.xml");
-            if pkg_xml_path.exists() {
-                if let Ok(pkg_xml) = package_xml::PackageXml::parse(&pkg_xml_path) {
-                    for dep in pkg_xml.all_dependencies() {
-                        if !visited.contains(dep) {
-                            queue.push(dep.clone());
-                        }
+            if pkg_xml_path.exists()
+                && let Ok(pkg_xml) = package_xml::PackageXml::parse(&pkg_xml_path)
+            {
+                for dep in pkg_xml.all_dependencies() {
+                    if !visited.contains(dep) {
+                        queue.push(dep.clone());
                     }
                 }
             }
@@ -297,7 +297,11 @@ fn generate_cargo_config(
     patcher.save()?;
 
     if verbose {
-        let nano_count = if nano_ros_path.is_some() || nano_ros_git { 2 } else { 0 };
+        let nano_count = if nano_ros_path.is_some() || nano_ros_git {
+            2
+        } else {
+            0
+        };
         println!(
             "Generated .cargo/config.toml with {} patch entries",
             packages.len() + nano_count

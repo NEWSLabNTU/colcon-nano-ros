@@ -3,6 +3,7 @@
 //! This module exposes cargo-nano-ros's functionality to Python using PyO3.
 
 #![allow(clippy::useless_conversion)] // False positive with PyO3 0.22
+#![allow(unsafe_op_in_unsafe_fn)] // PyO3 0.22 macros generate unsafe ops without blocks
 
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;

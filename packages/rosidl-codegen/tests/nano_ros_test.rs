@@ -48,9 +48,10 @@ fn test_generate_std_msgs_string() {
 
     // Verify string uses heapless::String
     assert!(pkg.message_rs.contains("heapless::String<256>"));
-    assert!(pkg
-        .message_rs
-        .contains("writer.write_string(self.data.as_str())?"));
+    assert!(
+        pkg.message_rs
+            .contains("writer.write_string(self.data.as_str())?")
+    );
 }
 
 #[test]
@@ -154,12 +155,14 @@ fn test_generate_message_with_sequence() {
     assert!(pkg.message_rs.contains("heapless::Vec<f64, 64>"));
 
     // Verify sequence serialization/deserialization
-    assert!(pkg
-        .message_rs
-        .contains("writer.write_u32(self.data.len() as u32)?"));
-    assert!(pkg
-        .message_rs
-        .contains("let len = reader.read_u32()? as usize"));
+    assert!(
+        pkg.message_rs
+            .contains("writer.write_u32(self.data.len() as u32)?")
+    );
+    assert!(
+        pkg.message_rs
+            .contains("let len = reader.read_u32()? as usize")
+    );
 }
 
 #[test]

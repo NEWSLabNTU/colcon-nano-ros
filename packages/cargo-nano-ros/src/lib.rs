@@ -219,10 +219,16 @@ fn bundled_interfaces_dir() -> Option<PathBuf> {
 
     // Try relative to the running binary
     if let Ok(exe) = std::env::current_exe() {
-        // Walk up from binary to find the colcon-nano-ros directory
+        // Walk up from binary to find the interfaces directory
         let mut path = exe.as_path();
         for _ in 0..6 {
             if let Some(parent) = path.parent() {
+                // New layout: packages/codegen/interfaces/
+                let candidate = parent.join("packages/codegen").join(BUNDLED_INTERFACES_DIR);
+                if candidate.exists() {
+                    return Some(candidate);
+                }
+                // Legacy layout: colcon-nano-ros/interfaces/
                 let candidate = parent.join("colcon-nano-ros").join(BUNDLED_INTERFACES_DIR);
                 if candidate.exists() {
                     return Some(candidate);

@@ -1,6 +1,6 @@
 /**
  * @file nano_ros_codegen.h
- * @brief C interface for nano-ros code generation.
+ * @brief C interface for nros code generation.
  *
  * This header declares the function provided by libnano_ros_codegen_c.a.
  * The CMake build system uses this to compile a thin wrapper executable

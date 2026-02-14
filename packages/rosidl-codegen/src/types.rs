@@ -11,7 +11,7 @@ pub enum CodegenBackend {
     #[default]
     Rclrs,
 
-    /// nano-ros backend - generates single-layer pure Rust types
+    /// nros backend - generates single-layer pure Rust types
     /// Uses heapless collections for no_std compatibility
     /// No C dependencies, suitable for embedded RTOS platforms
     NanoRos,
@@ -457,16 +457,16 @@ pub fn rust_type_for_constant(field_type: &FieldType) -> String {
 }
 
 // ============================================================================
-// nano-ros Type Mapping
+// nros Type Mapping
 // ============================================================================
 
-/// Default string capacity for nano-ros heapless strings
+/// Default string capacity for nros heapless strings
 pub const NANO_ROS_DEFAULT_STRING_CAPACITY: usize = 256;
 
-/// Default sequence capacity for nano-ros heapless vectors
+/// Default sequence capacity for nros heapless vectors
 pub const NANO_ROS_DEFAULT_SEQUENCE_CAPACITY: usize = 64;
 
-/// Configuration for nano-ros code generation mode
+/// Configuration for nros code generation mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum NanoRosCodegenMode {
     /// Crate mode: each package is a separate crate.
@@ -475,18 +475,18 @@ pub enum NanoRosCodegenMode {
     Crate,
     /// Inline mode: all packages in a single module tree (for build.rs).
     /// Self-refs use `super::Type`, cross-refs use `super::super::super::pkg::msg::Type`.
-    /// Template uses `nano_ros_core::` prefix instead of direct imports.
+    /// Template uses `nros_core::` prefix instead of direct imports.
     Inline,
 }
 
-/// Get the Rust type string for a field type using nano-ros backend
+/// Get the Rust type string for a field type using nros backend
 /// Returns heapless types for no_std compatibility
 /// `current_package` is used to detect self-references and use `crate::` instead of `pkg::`
 pub fn nano_ros_type_for_field(field_type: &FieldType, current_package: Option<&str>) -> String {
     nano_ros_type_for_field_with_mode(field_type, current_package, NanoRosCodegenMode::Crate)
 }
 
-/// Get the Rust type string for a field type using nano-ros backend with explicit mode
+/// Get the Rust type string for a field type using nros backend with explicit mode
 pub fn nano_ros_type_for_field_with_mode(
     field_type: &FieldType,
     current_package: Option<&str>,
@@ -500,7 +500,7 @@ pub fn nano_ros_type_for_field_with_mode(
         FieldType::String => {
             if inline {
                 format!(
-                    "nano_ros_core::heapless::String<{}>",
+                    "nros_core::heapless::String<{}>",
                     NANO_ROS_DEFAULT_STRING_CAPACITY
                 )
             } else {
@@ -510,7 +510,7 @@ pub fn nano_ros_type_for_field_with_mode(
 
         FieldType::BoundedString(size) => {
             if inline {
-                format!("nano_ros_core::heapless::String<{}>", size)
+                format!("nros_core::heapless::String<{}>", size)
             } else {
                 format!("heapless::String<{}>", size)
             }
@@ -520,7 +520,7 @@ pub fn nano_ros_type_for_field_with_mode(
             // WString maps to regular heapless::String (UTF-8)
             if inline {
                 format!(
-                    "nano_ros_core::heapless::String<{}>",
+                    "nros_core::heapless::String<{}>",
                     NANO_ROS_DEFAULT_STRING_CAPACITY
                 )
             } else {
@@ -530,7 +530,7 @@ pub fn nano_ros_type_for_field_with_mode(
 
         FieldType::BoundedWString(size) => {
             if inline {
-                format!("nano_ros_core::heapless::String<{}>", size)
+                format!("nros_core::heapless::String<{}>", size)
             } else {
                 format!("heapless::String<{}>", size)
             }
@@ -547,7 +547,7 @@ pub fn nano_ros_type_for_field_with_mode(
                 nano_ros_type_for_field_with_mode(element_type, current_package, mode);
             if inline {
                 format!(
-                    "nano_ros_core::heapless::Vec<{}, {}>",
+                    "nros_core::heapless::Vec<{}, {}>",
                     elem, NANO_ROS_DEFAULT_SEQUENCE_CAPACITY
                 )
             } else {
@@ -565,7 +565,7 @@ pub fn nano_ros_type_for_field_with_mode(
             let elem =
                 nano_ros_type_for_field_with_mode(element_type, current_package, mode);
             if inline {
-                format!("nano_ros_core::heapless::Vec<{}, {}>", elem, max_size)
+                format!("nros_core::heapless::Vec<{}, {}>", elem, max_size)
             } else {
                 format!("heapless::Vec<{}, {}>", elem, max_size)
             }
@@ -606,7 +606,7 @@ pub fn nano_ros_type_for_field_with_mode(
     }
 }
 
-/// Get the Rust type string for a constant using nano-ros backend
+/// Get the Rust type string for a constant using nros backend
 /// Similar to `nano_ros_type_for_field` but uses `&'static str` for string types
 pub fn nano_ros_type_for_constant(field_type: &FieldType) -> String {
     match field_type {
@@ -942,10 +942,10 @@ pub fn annotation_value_to_constant_value(
 }
 
 // ============================================================================
-// C Type Mapping (for nano-ros-c)
+// C Type Mapping (for nros-c)
 // ============================================================================
 
-/// Default string capacity for C strings (matches nano-ros-c)
+/// Default string capacity for C strings (matches nros-c)
 pub const C_DEFAULT_STRING_CAPACITY: usize = 256;
 
 /// Default sequence capacity for C arrays

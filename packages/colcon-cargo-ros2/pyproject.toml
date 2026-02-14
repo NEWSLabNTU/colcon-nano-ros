@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "colcon-nano-ros"
 version = "0.4.0"
-description = "Extension for colcon to build nano-ros packages with automatic message type generation"
+description = "Extension for colcon to build nros packages with automatic message type generation"
 readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "Apache-2.0" }

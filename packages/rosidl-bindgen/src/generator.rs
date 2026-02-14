@@ -1,11 +1,11 @@
-//! Generator integration for generating nano-ros Rust bindings from ROS 2 interface packages.
+//! Generator integration for generating nros Rust bindings from ROS 2 interface packages.
 //!
 //! This module integrates with rosidl-codegen to:
 //! - Parse interface files (.msg, .srv)
 //! - Generate pure Rust, no_std compatible code for messages and services
 //! - Write generated code to output directory with proper structure
 //!
-//! Note: This is the nano-ros fork which generates single-layer pure Rust bindings
+//! Note: This is the nros fork which generates single-layer pure Rust bindings
 //! using heapless types, suitable for embedded systems.
 
 use crate::ament::Package;
@@ -18,7 +18,7 @@ use rosidl_codegen::{
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-/// Generated nano-ros Rust package structure.
+/// Generated nros Rust package structure.
 ///
 /// Single-layer architecture with pure Rust, no_std compatible types:
 /// - `pkg::msg::Type` - Message types using heapless collections
@@ -38,7 +38,7 @@ pub struct GeneratedRustPackage {
     pub action_count: usize,
 }
 
-/// Generate nano-ros Rust bindings for a ROS 2 package
+/// Generate nros Rust bindings for a ROS 2 package
 ///
 /// This generates pure Rust, no_std compatible bindings using heapless types.
 /// Unlike the rclrs backend, this does NOT require ROS 2 C libraries.
@@ -80,7 +80,7 @@ pub fn generate_package(package: &Package, output_dir: &Path) -> Result<Generate
             &all_dependencies,
             &package.version,
         )
-        .wrap_err_with(|| format!("Failed to generate nano-ros message: {}", msg_name))?;
+        .wrap_err_with(|| format!("Failed to generate nros message: {}", msg_name))?;
 
         // Write message file
         let msg_file = msg_dir.join(format!("{}.rs", to_snake_case(msg_name)));
@@ -115,7 +115,7 @@ pub fn generate_package(package: &Package, output_dir: &Path) -> Result<Generate
                 &all_dependencies,
                 &package.version,
             )
-            .wrap_err_with(|| format!("Failed to generate nano-ros service: {}", srv_name))?;
+            .wrap_err_with(|| format!("Failed to generate nros service: {}", srv_name))?;
 
             // Write service file
             let srv_file = srv_dir.join(format!("{}.rs", to_snake_case(srv_name)));
@@ -155,7 +155,7 @@ pub fn generate_package(package: &Package, output_dir: &Path) -> Result<Generate
                 &all_dependencies,
                 &package.version,
             )
-            .wrap_err_with(|| format!("Failed to generate nano-ros action: {}", action_name))?;
+            .wrap_err_with(|| format!("Failed to generate nros action: {}", action_name))?;
 
             // Write action file
             let action_file = action_dir.join(format!("{}.rs", to_snake_case(action_name)));
@@ -202,7 +202,7 @@ pub fn generate_package(package: &Package, output_dir: &Path) -> Result<Generate
     })
 }
 
-/// Generate msg/mod.rs for nano-ros
+/// Generate msg/mod.rs for nros
 fn generate_msg_mod_rs(msg_dir: &Path, package: &Package) -> Result<()> {
     let mut content = String::new();
     content.push_str("//! Message types for this package\n\n");
@@ -217,7 +217,7 @@ fn generate_msg_mod_rs(msg_dir: &Path, package: &Package) -> Result<()> {
     Ok(())
 }
 
-/// Generate srv/mod.rs for nano-ros
+/// Generate srv/mod.rs for nros
 fn generate_srv_mod_rs(srv_dir: &Path, package: &Package) -> Result<()> {
     let mut content = String::new();
     content.push_str("//! Service types for this package\n\n");
@@ -236,7 +236,7 @@ fn generate_srv_mod_rs(srv_dir: &Path, package: &Package) -> Result<()> {
     Ok(())
 }
 
-/// Generate action/mod.rs for nano-ros
+/// Generate action/mod.rs for nros
 fn generate_action_mod_rs(action_dir: &Path, package: &Package) -> Result<()> {
     let mut content = String::new();
     content.push_str("//! Action types for this package\n\n");
@@ -255,10 +255,10 @@ fn generate_action_mod_rs(action_dir: &Path, package: &Package) -> Result<()> {
     Ok(())
 }
 
-/// Generate lib.rs for nano-ros
+/// Generate lib.rs for nros
 fn generate_lib_rs(src_dir: &Path, package: &Package) -> Result<()> {
     let mut content = String::new();
-    content.push_str("//! Generated nano-ros bindings\n");
+    content.push_str("//! Generated nros bindings\n");
     content.push_str("//!\n");
     content.push_str("//! This crate is `no_std` compatible.\n\n");
     content.push_str("#![no_std]\n\n");
@@ -277,7 +277,7 @@ fn generate_lib_rs(src_dir: &Path, package: &Package) -> Result<()> {
     Ok(())
 }
 
-/// Generate Cargo.toml for nano-ros
+/// Generate Cargo.toml for nros
 fn generate_cargo_toml(
     output_dir: &Path,
     package_name: &str,
@@ -286,8 +286,8 @@ fn generate_cargo_toml(
 ) -> Result<()> {
     // Build std feature list including all dependencies
     let mut std_features = vec![
-        "\"nano-ros-core/std\"".to_string(),
-        "\"nano-ros-serdes/std\"".to_string(),
+        "\"nros-core/std\"".to_string(),
+        "\"nros-serdes/std\"".to_string(),
     ];
     for dep in dependencies {
         let crate_name = dep.replace('-', "_");
@@ -295,7 +295,7 @@ fn generate_cargo_toml(
     }
     let std_feature_list = std_features.join(", ");
 
-    // Use crates.io version specifiers for nano-ros crates.
+    // Use crates.io version specifiers for nros crates.
     // For development, use .cargo/config.toml [patch.crates-io] to point to local paths.
     let mut cargo_toml = format!(
         r#"[package]
@@ -308,9 +308,9 @@ default = []
 std = [{std_features}]
 
 [dependencies]
-# nano-ros crates (patched to local via .cargo/config.toml during development)
-nano-ros-core = {{ version = "*", default-features = false }}
-nano-ros-serdes = {{ version = "*", default-features = false }}
+# nros crates (patched to local via .cargo/config.toml during development)
+nros-core = {{ version = "*", default-features = false }}
+nros-serdes = {{ version = "*", default-features = false }}
 heapless = "0.8"
 "#,
         package_name,
@@ -406,7 +406,7 @@ mod tests {
 <package format="3">
   <name>nano_msgs</name>
   <version>1.0.0</version>
-  <description>Test nano-ros messages</description>
+  <description>Test nros messages</description>
 </package>
 "#;
         fs::write(share_dir.join("package.xml"), package_xml).unwrap();
@@ -422,8 +422,8 @@ mod tests {
             fs::read_to_string(output_dir.join("nano_msgs").join("Cargo.toml")).unwrap();
         assert!(cargo_toml.contains("name = \"nano_msgs\""));
         assert!(cargo_toml.contains("version = \"1.0.0\""));
-        assert!(cargo_toml.contains("nano-ros-core"));
-        assert!(cargo_toml.contains("nano-ros-serdes"));
+        assert!(cargo_toml.contains("nros-core"));
+        assert!(cargo_toml.contains("nros-serdes"));
         assert!(cargo_toml.contains("heapless"));
         // Should NOT contain rclrs dependencies
         assert!(!cargo_toml.contains("rosidl_runtime_rs"));

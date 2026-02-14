@@ -474,17 +474,17 @@ pub fn generate_action_package(
 }
 
 // ============================================================================
-// nano-ros Backend Generator Functions
+// nros Backend Generator Functions
 // ============================================================================
 
-/// Generated nano-ros message package
+/// Generated nros message package
 pub struct GeneratedNanoRosPackage {
     pub cargo_toml: String,
     pub lib_rs: String,
     pub message_rs: String,
 }
 
-/// Generated nano-ros service package
+/// Generated nros service package
 pub struct GeneratedNanoRosServicePackage {
     pub cargo_toml: String,
     pub lib_rs: String,
@@ -584,7 +584,7 @@ fn field_to_nano_ros_field(field: &rosidl_parser::Field, package_name: &str) -> 
 }
 
 
-/// Generate a nano-ros message package
+/// Generate a nros message package
 pub fn generate_nano_ros_message_package(
     package_name: &str,
     message_name: &str,
@@ -657,7 +657,7 @@ pub fn generate_nano_ros_message_package(
     })
 }
 
-/// Generate a nano-ros service package
+/// Generate a nros service package
 pub fn generate_nano_ros_service_package(
     package_name: &str,
     service_name: &str,
@@ -756,14 +756,14 @@ pub fn generate_nano_ros_service_package(
     })
 }
 
-/// Generated nano-ros action package
+/// Generated nros action package
 pub struct GeneratedNanoRosActionPackage {
     pub cargo_toml: String,
     pub lib_rs: String,
     pub action_rs: String,
 }
 
-/// Generate a nano-ros action package
+/// Generate a nros action package
 pub fn generate_nano_ros_action_package(
     package_name: &str,
     action_name: &str,
@@ -1098,7 +1098,7 @@ pub fn generate_nano_ros_inline_action(
 }
 
 // ============================================================================
-// C Code Generation (for nano-ros-c)
+// C Code Generation (for nros-c)
 // ============================================================================
 
 /// Generated C message package
@@ -1781,7 +1781,7 @@ mod tests {
     }
 
     // ========================================================================
-    // nano-ros Backend Tests
+    // nros Backend Tests
     // ========================================================================
 
     #[test]
@@ -1794,9 +1794,9 @@ mod tests {
 
         let pkg = result.unwrap();
 
-        // Check Cargo.toml has nano-ros dependencies
-        assert!(pkg.cargo_toml.contains("nano-ros-core"));
-        assert!(pkg.cargo_toml.contains("nano-ros-serdes"));
+        // Check Cargo.toml has nros dependencies
+        assert!(pkg.cargo_toml.contains("nros-core"));
+        assert!(pkg.cargo_toml.contains("nros-serdes"));
         assert!(pkg.cargo_toml.contains("heapless"));
 
         // Check lib.rs is no_std
@@ -1840,7 +1840,7 @@ mod tests {
         let pkg = result.unwrap();
 
         // Check Cargo.toml
-        assert!(pkg.cargo_toml.contains("nano-ros-core"));
+        assert!(pkg.cargo_toml.contains("nros-core"));
 
         // Check lib.rs
         assert!(pkg.lib_rs.contains("pub mod srv"));
@@ -1875,7 +1875,7 @@ mod tests {
         let pkg = result.unwrap();
 
         // Check Cargo.toml
-        assert!(pkg.cargo_toml.contains("nano-ros-core"));
+        assert!(pkg.cargo_toml.contains("nros-core"));
 
         // Check lib.rs
         assert!(pkg.lib_rs.contains("pub mod action"));

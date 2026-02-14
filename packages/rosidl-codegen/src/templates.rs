@@ -155,10 +155,10 @@ pub struct ActionIdiomaticTemplate<'a> {
 }
 
 // ============================================================================
-// nano-ros Templates
+// nros Templates
 // ============================================================================
 
-/// Field metadata for nano-ros code generation
+/// Field metadata for nros code generation
 #[derive(Debug, Clone)]
 pub struct NanoRosField {
     pub name: String,
@@ -190,7 +190,7 @@ pub struct MessageNanoRosTemplate<'a> {
     pub constants: Vec<MessageConstant>,
     /// True if there are fields to serialize/deserialize
     pub has_fields: bool,
-    /// When true, uses nano_ros_core:: prefixed imports instead of direct use statements
+    /// When true, uses nros_core:: prefixed imports instead of direct use statements
     pub inline_mode: bool,
 }
 
@@ -208,7 +208,7 @@ pub struct ServiceNanoRosTemplate<'a> {
     pub has_request_fields: bool,
     /// True if response has fields to serialize/deserialize
     pub has_response_fields: bool,
-    /// When true, uses nano_ros_core:: prefixed imports instead of direct use statements
+    /// When true, uses nros_core:: prefixed imports instead of direct use statements
     pub inline_mode: bool,
 }
 
@@ -246,12 +246,12 @@ pub struct ActionNanoRosTemplate<'a> {
     pub has_result_fields: bool,
     /// True if feedback has fields to serialize/deserialize
     pub has_feedback_fields: bool,
-    /// When true, uses nano_ros_core:: prefixed imports instead of direct use statements
+    /// When true, uses nros_core:: prefixed imports instead of direct use statements
     pub inline_mode: bool,
 }
 
 // ============================================================================
-// C Templates (for nano-ros-c)
+// C Templates (for nros-c)
 // ============================================================================
 
 /// Field information for C code generation

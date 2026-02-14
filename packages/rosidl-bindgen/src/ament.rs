@@ -263,7 +263,7 @@ impl AmentIndex {
     /// Each subdirectory should be a package share directory (containing msg/, srv/,
     /// action/ subdirectories with .msg/.srv/.action files).
     ///
-    /// This is used for bundled interfaces that ship with nano-ros, allowing codegen
+    /// This is used for bundled interfaces that ship with nros, allowing codegen
     /// to work without a ROS 2 environment.
     pub fn from_directory(dir: &Path) -> Result<Self> {
         let mut packages = HashMap::new();

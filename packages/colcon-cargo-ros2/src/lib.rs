@@ -194,7 +194,7 @@ fn cargo_ros2_py(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add(
         "__doc__",
-        "Python bindings for cargo-nano-ros - Build tool for nano-ros projects",
+        "Python bindings for cargo-nano-ros - Build tool for nros projects",
     )?;
 
     Ok(())

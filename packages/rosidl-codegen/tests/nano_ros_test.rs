@@ -1,4 +1,4 @@
-//! Integration tests for nano-ros code generation
+//! Integration tests for nros code generation
 
 use rosidl_codegen::{generate_nano_ros_message_package, generate_nano_ros_service_package};
 use rosidl_parser::{parse_message, parse_service};
@@ -18,8 +18,8 @@ fn test_generate_std_msgs_int32() {
     // Verify Cargo.toml
     assert!(pkg.cargo_toml.contains("name = \"std_msgs\""));
     assert!(pkg.cargo_toml.contains("version = \"5.3.0\""));
-    assert!(pkg.cargo_toml.contains("nano-ros-core"));
-    assert!(pkg.cargo_toml.contains("nano-ros-serdes"));
+    assert!(pkg.cargo_toml.contains("nros-core"));
+    assert!(pkg.cargo_toml.contains("nros-serdes"));
     assert!(pkg.cargo_toml.contains("heapless"));
 
     // Verify lib.rs

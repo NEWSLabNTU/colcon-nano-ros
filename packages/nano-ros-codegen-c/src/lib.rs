@@ -1,4 +1,4 @@
-//! C-callable static library for nano-ros C code generation.
+//! C-callable static library for nros C code generation.
 //!
 //! Wraps `cargo_nano_ros::generate_c_from_args_file()` as a single C function
 //! for use by the CMake build system.
@@ -27,7 +27,7 @@ pub unsafe extern "C" fn nano_ros_codegen_generate_c(
     let path = match c_str.to_str() {
         Ok(s) => PathBuf::from(s),
         Err(e) => {
-            eprintln!("nano-ros-codegen: invalid UTF-8 in args_file path: {e}");
+            eprintln!("nros-codegen: invalid UTF-8 in args_file path: {e}");
             return 1;
         }
     };
@@ -40,7 +40,7 @@ pub unsafe extern "C" fn nano_ros_codegen_generate_c(
     match cargo_nano_ros::generate_c_from_args_file(config) {
         Ok(()) => 0,
         Err(e) => {
-            eprintln!("nano-ros-codegen: {e:#}");
+            eprintln!("nros-codegen: {e:#}");
             1
         }
     }

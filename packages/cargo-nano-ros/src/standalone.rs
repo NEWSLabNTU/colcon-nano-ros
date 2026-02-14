@@ -28,7 +28,7 @@ enum Command {
     /// Generate Rust bindings from package.xml dependencies
     ///
     /// Reads package.xml to discover ROS 2 interface dependencies,
-    /// resolves transitive dependencies, and generates nano-ros bindings.
+    /// resolves transitive dependencies, and generates nros bindings.
     GenerateRust {
         /// Path to package.xml (default: ./package.xml)
         #[arg(long, default_value = "package.xml")]
@@ -42,13 +42,13 @@ enum Command {
         #[arg(long)]
         config: bool,
 
-        /// Path to nano-ros crates directory (for config patches)
-        /// If not specified, nano-ros crates will use crates.io (requires published crates)
+        /// Path to nros crates directory (for config patches)
+        /// If not specified, nros crates will use crates.io (requires published crates)
         #[arg(long, conflicts_with = "nano_ros_git")]
         nano_ros_path: Option<PathBuf>,
 
-        /// Use nano-ros git repository for config patches
-        /// Generates [patch.crates-io] entries pointing to the nano-ros git repository
+        /// Use nros git repository for config patches
+        /// Generates [patch.crates-io] entries pointing to the nros git repository
         #[arg(long, conflicts_with = "nano_ros_path")]
         nano_ros_git: bool,
 
@@ -76,7 +76,7 @@ enum Command {
 
     /// Generate C bindings for interface files (.msg, .srv, .action)
     ///
-    /// Generates C code for use with nano-ros-c library. Called by
+    /// Generates C code for use with nros-c library. Called by
     /// nano_ros_generate_interfaces() CMake function.
     GenerateC {
         /// Path to JSON arguments file

@@ -6,12 +6,12 @@ license = "Apache-2.0"
 
 [features]
 default = ["std"]
-std = ["nano-ros-core/std", "nano-ros-serdes/std"]
-alloc = ["nano-ros-core/alloc", "nano-ros-serdes/alloc"]
+std = ["nros-core/std", "nros-serdes/std"]
+alloc = ["nros-core/alloc", "nros-serdes/alloc"]
 
 [dependencies]
-nano-ros-core = { version = "0.1", default-features = false }
-nano-ros-serdes = { version = "0.1", default-features = false }
+nros-core = { version = "0.1", default-features = false }
+nros-serdes = { version = "0.1", default-features = false }
 heapless = "0.8"
 {%- for dep in dependencies %}
 {{ dep }} = { version = "*", default-features = false }

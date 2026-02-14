@@ -1,6 +1,6 @@
 //! cargo-nano-ros library
 //!
-//! This library provides functionality for generating nano-ros message bindings
+//! This library provides functionality for generating nros message bindings
 //! from package.xml dependencies.
 //!
 //! # Public API
@@ -43,7 +43,7 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 /// Path to bundled interface files relative to the cargo-nano-ros crate root.
-/// These are shipped with nano-ros so codegen works without a ROS 2 environment.
+/// These are shipped with nros so codegen works without a ROS 2 environment.
 const BUNDLED_INTERFACES_DIR: &str = "interfaces";
 
 /// Configuration for generating bindings from package.xml
@@ -55,9 +55,9 @@ pub struct GenerateConfig {
     pub output_dir: PathBuf,
     /// Generate .cargo/config.toml with [patch.crates-io] entries
     pub generate_config: bool,
-    /// Path to nano-ros crates directory (for config patches)
+    /// Path to nros crates directory (for config patches)
     pub nano_ros_path: Option<PathBuf>,
-    /// Use nano-ros git repository for config patches
+    /// Use nros git repository for config patches
     pub nano_ros_git: bool,
     /// Overwrite existing bindings
     pub force: bool,
@@ -108,7 +108,7 @@ pub struct GenerateCConfig {
 /// 1. Parses package.xml to find dependencies
 /// 2. Resolves transitive dependencies via ament index
 /// 3. Filters to interface packages (those with msg/srv/action)
-/// 4. Generates nano-ros bindings for each
+/// 4. Generates nros bindings for each
 /// 5. Optionally generates .cargo/config.toml
 pub fn generate_from_package_xml(config: GenerateConfig) -> Result<()> {
     use package_xml::PackageXml;
@@ -369,16 +369,16 @@ fn generate_cargo_config(
     let project_root = Path::new(".");
     let mut patcher = config_patcher::ConfigPatcher::new(project_root)?;
 
-    // Add nano-ros crate patches
+    // Add nros crate patches
     if let Some(crates_path) = nano_ros_path {
         // Path-based patches (for local development)
-        patcher.add_patch("nano-ros-core", &crates_path.join("nano-ros-core"));
-        patcher.add_patch("nano-ros-serdes", &crates_path.join("nano-ros-serdes"));
+        patcher.add_patch("nros-core", &crates_path.join("nros-core"));
+        patcher.add_patch("nros-serdes", &crates_path.join("nros-serdes"));
     } else if nano_ros_git {
         // Git-based patches (for external users)
         let git_url = "https://github.com/jerry73204/nano-ros";
-        patcher.add_git_patch("nano-ros-core", git_url);
-        patcher.add_git_patch("nano-ros-serdes", git_url);
+        patcher.add_git_patch("nros-core", git_url);
+        patcher.add_git_patch("nros-serdes", git_url);
     }
 
     // Add message package patches
@@ -626,7 +626,7 @@ fn generate_umbrella_header(
     content.push_str(&format!("#ifndef {}\n", guard_name));
     content.push_str(&format!("#define {}\n\n", guard_name));
 
-    // Include nano-ros core types (modular header)
+    // Include nros core types (modular header)
     content.push_str("#include <nano_ros/types.h>\n\n");
 
     // Include dependency headers

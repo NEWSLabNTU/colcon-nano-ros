@@ -1,14 +1,14 @@
 /**
  * @file codegen_main.c
- * @brief Thin wrapper around nano_ros_codegen_generate_c().
+ * @brief Thin wrapper around nros_codegen_generate_c().
  *
- * Usage: nano_ros_codegen --args-file <path> [--verbose]
+ * Usage: nros_codegen --args-file <path> [--verbose]
  *
  * This is compiled by CMake at configure time and linked against
- * libnano_ros_codegen_c.a to produce a self-contained code generation tool.
+ * libnros_codegen_c.a to produce a self-contained code generation tool.
  */
 
-#include "nano_ros_codegen.h"
+#include "nros_codegen.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -26,9 +26,9 @@ int main(int argc, char *argv[]) {
 
     if (!args_file) {
         fprintf(stderr, "Usage: %s --args-file <path> [--verbose]\n",
-                argc > 0 ? argv[0] : "nano_ros_codegen");
+                argc > 0 ? argv[0] : "nros_codegen");
         return 1;
     }
 
-    return nano_ros_codegen_generate_c(args_file, verbose);
+    return nros_codegen_generate_c(args_file, verbose);
 }

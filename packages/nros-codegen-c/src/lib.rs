@@ -19,7 +19,7 @@ use std::path::PathBuf;
 /// # Safety
 /// `args_file` must be a valid, null-terminated C string.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn nano_ros_codegen_generate_c(
+pub unsafe extern "C" fn nros_codegen_generate_c(
     args_file: *const c_char,
     verbose: i32,
 ) -> i32 {

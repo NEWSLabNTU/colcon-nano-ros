@@ -3,6 +3,28 @@ use rosidl_parser::ast::ConstantValue;
 use rosidl_parser::idl::ast::ConstantValue as IdlConstantValue;
 use rosidl_parser::idl::types::IdlType;
 
+/// ROS 2 edition for type hash generation
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RosEdition {
+    /// ROS 2 Humble: type hash = "TypeHashNotSupported"
+    #[default]
+    Humble,
+    /// ROS 2 Iron+: type hash = "RIHS01_<sha256>" (placeholder until computed)
+    Iron,
+}
+
+impl RosEdition {
+    /// Get the type hash string for this edition.
+    pub fn type_hash(&self) -> &'static str {
+        match self {
+            RosEdition::Humble => "TypeHashNotSupported",
+            RosEdition::Iron => {
+                "RIHS01_0000000000000000000000000000000000000000000000000000000000000000"
+            }
+        }
+    }
+}
+
 /// Code generation backend selection
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum CodegenBackend {

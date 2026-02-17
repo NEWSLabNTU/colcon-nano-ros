@@ -141,5 +141,5 @@ impl Deserialize for {{ message_name }} {
 
 impl RosMessage for {{ message_name }} {
     const TYPE_NAME: &'static str = "{{ package_name }}::msg::dds_::{{ message_name }}_";
-    const TYPE_HASH: &'static str = "RIHS01_{{ type_hash }}";
+    const TYPE_HASH: &'static str = "{{ type_hash }}";
 }

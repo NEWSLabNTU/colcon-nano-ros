@@ -7,10 +7,11 @@ use crate::templates::{
     ServiceCSourceTemplate, ServiceIdiomaticTemplate, ServiceNanoRosTemplate, ServiceRmwTemplate,
 };
 use crate::types::{
-    C_DEFAULT_SEQUENCE_CAPACITY, NanoRosCodegenMode, c_array_suffix_for_field, c_cdr_read_method,
-    c_cdr_write_method, c_type_for_constant, c_type_for_field, constant_value_to_rust,
-    escape_keyword, nano_ros_type_for_constant, nano_ros_type_for_field_with_mode,
-    rust_type_for_constant, rust_type_for_field, to_c_package_name,
+    C_DEFAULT_SEQUENCE_CAPACITY, NanoRosCodegenMode, RosEdition, c_array_suffix_for_field,
+    c_cdr_read_method, c_cdr_write_method, c_type_for_constant, c_type_for_field,
+    constant_value_to_rust, escape_keyword, nano_ros_type_for_constant,
+    nano_ros_type_for_field_with_mode, rust_type_for_constant, rust_type_for_field,
+    to_c_package_name,
 };
 use crate::utils::{extract_dependencies, needs_big_array, to_snake_case};
 use askama::Template;
@@ -589,6 +590,7 @@ pub fn generate_nano_ros_message_package(
     message: &Message,
     all_dependencies: &HashSet<String>,
     package_version: &str,
+    edition: RosEdition,
 ) -> Result<GeneratedNanoRosPackage, GeneratorError> {
     // Extract dependencies from this specific message
     let msg_deps = extract_dependencies(message);
@@ -633,8 +635,7 @@ pub fn generate_nano_ros_message_package(
         })
         .collect();
 
-    // For now, use a placeholder type hash (in production, compute from IDL)
-    let type_hash = "0000000000000000000000000000000000000000000000000000000000000000";
+    let type_hash = edition.type_hash();
 
     let has_fields = !fields.is_empty();
     let message_template = MessageNanoRosTemplate {
@@ -662,6 +663,7 @@ pub fn generate_nano_ros_service_package(
     service: &Service,
     all_dependencies: &HashSet<String>,
     package_version: &str,
+    edition: RosEdition,
 ) -> Result<GeneratedNanoRosServicePackage, GeneratorError> {
     // Extract dependencies from request and response
     let mut req_deps = extract_dependencies(&service.request);
@@ -728,8 +730,7 @@ pub fn generate_nano_ros_service_package(
         })
         .collect();
 
-    // For now, use a placeholder type hash
-    let type_hash = "0000000000000000000000000000000000000000000000000000000000000000";
+    let type_hash = edition.type_hash();
 
     let has_request_fields = !request_fields.is_empty();
     let has_response_fields = !response_fields.is_empty();
@@ -768,6 +769,7 @@ pub fn generate_nano_ros_action_package(
     action: &Action,
     all_dependencies: &HashSet<String>,
     package_version: &str,
+    edition: RosEdition,
 ) -> Result<GeneratedNanoRosActionPackage, GeneratorError> {
     // Extract dependencies from goal, result, and feedback
     let mut goal_deps = extract_dependencies(&action.spec.goal);
@@ -861,8 +863,7 @@ pub fn generate_nano_ros_action_package(
         })
         .collect();
 
-    // For now, use a placeholder type hash
-    let type_hash = "0000000000000000000000000000000000000000000000000000000000000000";
+    let type_hash = edition.type_hash();
 
     let has_goal_fields = !goal_fields.is_empty();
     let has_result_fields = !result_fields.is_empty();
@@ -905,6 +906,7 @@ pub fn generate_nano_ros_inline_message(
     package_name: &str,
     message_name: &str,
     message: &Message,
+    edition: RosEdition,
 ) -> Result<String, GeneratorError> {
     let mode = NanoRosCodegenMode::Inline;
     let fields: Vec<NanoRosField> = message
@@ -923,7 +925,7 @@ pub fn generate_nano_ros_inline_message(
         })
         .collect();
 
-    let type_hash = "0000000000000000000000000000000000000000000000000000000000000000";
+    let type_hash = edition.type_hash();
     let has_fields = !fields.is_empty();
 
     let template = MessageNanoRosTemplate {
@@ -944,6 +946,7 @@ pub fn generate_nano_ros_inline_service(
     package_name: &str,
     service_name: &str,
     service: &Service,
+    edition: RosEdition,
 ) -> Result<String, GeneratorError> {
     let mode = NanoRosCodegenMode::Inline;
 
@@ -983,7 +986,7 @@ pub fn generate_nano_ros_inline_service(
         })
         .collect();
 
-    let type_hash = "0000000000000000000000000000000000000000000000000000000000000000";
+    let type_hash = edition.type_hash();
     let has_request_fields = !request_fields.is_empty();
     let has_response_fields = !response_fields.is_empty();
 
@@ -1008,6 +1011,7 @@ pub fn generate_nano_ros_inline_action(
     package_name: &str,
     action_name: &str,
     action: &Action,
+    edition: RosEdition,
 ) -> Result<String, GeneratorError> {
     let mode = NanoRosCodegenMode::Inline;
 
@@ -1071,7 +1075,7 @@ pub fn generate_nano_ros_inline_action(
         })
         .collect();
 
-    let type_hash = "0000000000000000000000000000000000000000000000000000000000000000";
+    let type_hash = edition.type_hash();
     let has_goal_fields = !goal_fields.is_empty();
     let has_result_fields = !result_fields.is_empty();
     let has_feedback_fields = !feedback_fields.is_empty();
@@ -1787,7 +1791,14 @@ mod tests {
         let msg = parse_message("int32 x\nfloat64 y\nstring name\n").unwrap();
         let deps = HashSet::new();
 
-        let result = generate_nano_ros_message_package("test_msgs", "Point", &msg, &deps, "0.1.0");
+        let result = generate_nano_ros_message_package(
+            "test_msgs",
+            "Point",
+            &msg,
+            &deps,
+            "0.1.0",
+            RosEdition::Humble,
+        );
         assert!(result.is_ok());
 
         let pkg = result.unwrap();
@@ -1817,8 +1828,14 @@ mod tests {
         let msg = parse_message("int32[] data\n").unwrap();
         let deps = HashSet::new();
 
-        let result =
-            generate_nano_ros_message_package("test_msgs", "IntArray", &msg, &deps, "0.1.0");
+        let result = generate_nano_ros_message_package(
+            "test_msgs",
+            "IntArray",
+            &msg,
+            &deps,
+            "0.1.0",
+            RosEdition::Humble,
+        );
         assert!(result.is_ok());
 
         let pkg = result.unwrap();
@@ -1831,8 +1848,14 @@ mod tests {
         let srv = parse_service("int64 a\nint64 b\n---\nint64 sum\n").unwrap();
         let deps = HashSet::new();
 
-        let result =
-            generate_nano_ros_service_package("test_srvs", "AddTwoInts", &srv, &deps, "0.1.0");
+        let result = generate_nano_ros_service_package(
+            "test_srvs",
+            "AddTwoInts",
+            &srv,
+            &deps,
+            "0.1.0",
+            RosEdition::Humble,
+        );
         assert!(result.is_ok());
 
         let pkg = result.unwrap();
@@ -1867,6 +1890,7 @@ mod tests {
             &action,
             &deps,
             "0.1.0",
+            RosEdition::Humble,
         );
         assert!(result.is_ok());
 

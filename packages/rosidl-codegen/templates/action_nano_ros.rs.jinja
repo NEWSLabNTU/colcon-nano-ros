@@ -145,7 +145,7 @@ impl Deserialize for {{ action_name }}Goal {
 
 impl RosMessage for {{ action_name }}Goal {
     const TYPE_NAME: &'static str = "{{ package_name }}::action::dds_::{{ action_name }}_Goal_";
-    const TYPE_HASH: &'static str = "RIHS01_{{ type_hash }}";
+    const TYPE_HASH: &'static str = "{{ type_hash }}";
 }
 
 // ============================================================================
@@ -282,7 +282,7 @@ impl Deserialize for {{ action_name }}Result {
 
 impl RosMessage for {{ action_name }}Result {
     const TYPE_NAME: &'static str = "{{ package_name }}::action::dds_::{{ action_name }}_Result_";
-    const TYPE_HASH: &'static str = "RIHS01_{{ type_hash }}";
+    const TYPE_HASH: &'static str = "{{ type_hash }}";
 }
 
 // ============================================================================
@@ -419,7 +419,7 @@ impl Deserialize for {{ action_name }}Feedback {
 
 impl RosMessage for {{ action_name }}Feedback {
     const TYPE_NAME: &'static str = "{{ package_name }}::action::dds_::{{ action_name }}_Feedback_";
-    const TYPE_HASH: &'static str = "RIHS01_{{ type_hash }}";
+    const TYPE_HASH: &'static str = "{{ type_hash }}";
 }
 
 // ============================================================================
@@ -435,5 +435,5 @@ impl RosAction for {{ action_name }} {
     type Feedback = {{ action_name }}Feedback;
 
     const ACTION_NAME: &'static str = "{{ package_name }}::action::dds_::{{ action_name }}_";
-    const ACTION_HASH: &'static str = "RIHS01_{{ type_hash }}";
+    const ACTION_HASH: &'static str = "{{ type_hash }}";
 }

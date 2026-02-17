@@ -55,6 +55,10 @@ enum Command {
         /// Overwrite existing bindings
         #[arg(long)]
         force: bool,
+
+        /// ROS 2 edition for type hash format (humble or iron)
+        #[arg(long, default_value = "humble")]
+        ros_edition: String,
     },
 
     /// (Hidden) Backward-compatible alias for generate-rust
@@ -72,6 +76,8 @@ enum Command {
         nano_ros_git: bool,
         #[arg(long)]
         force: bool,
+        #[arg(long, default_value = "humble")]
+        ros_edition: String,
     },
 
     /// Generate C bindings for interface files (.msg, .srv, .action)
@@ -119,6 +125,7 @@ fn run_generate(
     nano_ros_git: bool,
     force: bool,
     verbose: bool,
+    ros_edition: String,
 ) -> Result<()> {
     let cfg = GenerateConfig {
         manifest_path,
@@ -128,6 +135,7 @@ fn run_generate(
         nano_ros_git,
         force,
         verbose,
+        ros_edition,
     };
     cargo_nano_ros::generate_from_package_xml(cfg)
 }
@@ -143,6 +151,7 @@ fn main() -> Result<()> {
             nano_ros_path,
             nano_ros_git,
             force,
+            ros_edition,
         }
         | Command::Generate {
             manifest_path,
@@ -151,6 +160,7 @@ fn main() -> Result<()> {
             nano_ros_path,
             nano_ros_git,
             force,
+            ros_edition,
         } => {
             run_generate(
                 manifest_path,
@@ -160,6 +170,7 @@ fn main() -> Result<()> {
                 nano_ros_git,
                 force,
                 cli.verbose,
+                ros_edition,
             )?;
         }
 

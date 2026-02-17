@@ -89,7 +89,7 @@ static inline const char* {{ service_struct_name }}_get_type_name(void) {
 
 /// Get the type hash for {{ service_name }}
 static inline const char* {{ service_struct_name }}_get_type_hash(void) {
-    return "RIHS01_{{ type_hash }}";
+    return "{{ type_hash }}";
 }
 
 /// Get the nano_ros_service_type_t for this service type

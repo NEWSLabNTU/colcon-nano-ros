@@ -11,7 +11,7 @@
 // Type support structure
 static const struct nano_ros_service_type_t {{ service_struct_name }}_type_support = {
     .type_name = "{{ package_name }}::srv::dds_::{{ service_name }}_",
-    .type_hash = "RIHS01_{{ type_hash }}",
+    .type_hash = "{{ type_hash }}",
 };
 
 const struct nano_ros_service_type_t* {{ service_struct_name }}_get_type_support(void) {

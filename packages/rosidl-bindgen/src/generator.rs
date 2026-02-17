@@ -11,7 +11,7 @@
 use crate::ament::Package;
 use eyre::{Result, WrapErr};
 use rosidl_codegen::{
-    generate_nano_ros_action_package, generate_nano_ros_message_package,
+    RosEdition, generate_nano_ros_action_package, generate_nano_ros_message_package,
     generate_nano_ros_service_package,
     utils::{extract_dependencies, to_snake_case},
 };
@@ -42,7 +42,11 @@ pub struct GeneratedRustPackage {
 ///
 /// This generates pure Rust, no_std compatible bindings using heapless types.
 /// Unlike the rclrs backend, this does NOT require ROS 2 C libraries.
-pub fn generate_package(package: &Package, output_dir: &Path) -> Result<GeneratedRustPackage> {
+pub fn generate_package(
+    package: &Package,
+    output_dir: &Path,
+    edition: RosEdition,
+) -> Result<GeneratedRustPackage> {
     let package_output = output_dir.join(&package.name);
     std::fs::create_dir_all(&package_output).wrap_err_with(|| {
         format!(
@@ -79,6 +83,7 @@ pub fn generate_package(package: &Package, output_dir: &Path) -> Result<Generate
             &parsed_msg,
             &all_dependencies,
             &package.version,
+            edition,
         )
         .wrap_err_with(|| format!("Failed to generate nros message: {}", msg_name))?;
 
@@ -114,6 +119,7 @@ pub fn generate_package(package: &Package, output_dir: &Path) -> Result<Generate
                 &parsed_srv,
                 &all_dependencies,
                 &package.version,
+                edition,
             )
             .wrap_err_with(|| format!("Failed to generate nros service: {}", srv_name))?;
 
@@ -154,6 +160,7 @@ pub fn generate_package(package: &Package, output_dir: &Path) -> Result<Generate
                 &parsed_action,
                 &all_dependencies,
                 &package.version,
+                edition,
             )
             .wrap_err_with(|| format!("Failed to generate nros action: {}", action_name))?;
 
@@ -364,7 +371,7 @@ mod tests {
         let package = create_test_package(temp_dir.path());
         let output_dir = temp_dir.path().join("output");
 
-        let result = generate_package(&package, &output_dir);
+        let result = generate_package(&package, &output_dir, RosEdition::Humble);
         assert!(result.is_ok());
 
         let generated = result.unwrap();
@@ -414,7 +421,7 @@ mod tests {
         let package = Package::from_share_dir(share_dir).unwrap();
         let output_dir = temp_dir.path().join("output");
 
-        let result = generate_package(&package, &output_dir);
+        let result = generate_package(&package, &output_dir, RosEdition::Humble);
         assert!(result.is_ok());
 
         // Check Cargo.toml content
@@ -437,7 +444,7 @@ mod tests {
         let package = create_test_package(temp_dir.path());
         let output_dir = temp_dir.path().join("output");
 
-        generate_package(&package, &output_dir).unwrap();
+        generate_package(&package, &output_dir, RosEdition::Humble).unwrap();
 
         // Check lib.rs is no_std
         let lib_rs =
@@ -460,7 +467,7 @@ mod tests {
         let package = Package::from_share_dir(share_dir).unwrap();
         let output_dir = temp_dir.path().join("output");
 
-        let result = generate_package(&package, &output_dir);
+        let result = generate_package(&package, &output_dir, RosEdition::Humble);
         assert!(result.is_ok());
 
         let generated = result.unwrap();

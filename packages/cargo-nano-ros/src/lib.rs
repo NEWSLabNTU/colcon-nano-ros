@@ -39,6 +39,7 @@ pub mod workflow;
 
 use eyre::{Result, WrapErr, eyre};
 use rosidl_bindgen::ament::{AmentIndex, Package};
+use rosidl_codegen::RosEdition;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
@@ -63,6 +64,8 @@ pub struct GenerateConfig {
     pub force: bool,
     /// Enable verbose output
     pub verbose: bool,
+    /// ROS 2 edition for type hash format ("humble" or "iron")
+    pub ros_edition: String,
 }
 
 /// Configuration for binding generation (single package)
@@ -110,8 +113,22 @@ pub struct GenerateCConfig {
 /// 3. Filters to interface packages (those with msg/srv/action)
 /// 4. Generates nros bindings for each
 /// 5. Optionally generates .cargo/config.toml
+/// Parse a ROS edition string into a `RosEdition` enum value.
+fn parse_ros_edition(s: &str) -> Result<RosEdition> {
+    match s {
+        "humble" => Ok(RosEdition::Humble),
+        "iron" => Ok(RosEdition::Iron),
+        _ => Err(eyre!(
+            "Unknown ROS edition '{}'. Expected 'humble' or 'iron'.",
+            s
+        )),
+    }
+}
+
 pub fn generate_from_package_xml(config: GenerateConfig) -> Result<()> {
     use package_xml::PackageXml;
+
+    let edition = parse_ros_edition(&config.ros_edition)?;
 
     // Parse package.xml
     let pkg_xml = PackageXml::parse(&config.manifest_path)?;
@@ -169,7 +186,8 @@ pub fn generate_from_package_xml(config: GenerateConfig) -> Result<()> {
             println!("  Generating {}...", pkg_name);
         }
 
-        let result = rosidl_bindgen::generator::generate_package(package, &config.output_dir)?;
+        let result =
+            rosidl_bindgen::generator::generate_package(package, &config.output_dir, edition)?;
 
         println!(
             "  ✓ {} ({} messages, {} services, {} actions)",
@@ -427,8 +445,8 @@ pub fn generate_bindings(config: BindgenConfig) -> Result<()> {
             .clone()
     };
 
-    // Generate bindings using rosidl-bindgen library
-    let result = generator::generate_package(&package, &config.output_dir)?;
+    // Generate bindings using rosidl-bindgen library (default to Humble)
+    let result = generator::generate_package(&package, &config.output_dir, RosEdition::Humble)?;
 
     if config.verbose {
         eprintln!(
@@ -448,6 +466,13 @@ struct GenerateCArgs {
     interface_files: Vec<PathBuf>,
     #[serde(default)]
     dependencies: Vec<String>,
+    /// ROS 2 edition for type hash format (defaults to "humble")
+    #[serde(default = "default_ros_edition")]
+    ros_edition: String,
+}
+
+fn default_ros_edition() -> String {
+    "humble".to_string()
 }
 
 /// Generate C bindings from an arguments file
@@ -462,11 +487,15 @@ pub fn generate_c_from_args_file(config: GenerateCConfig) -> Result<()> {
     let args: GenerateCArgs = serde_json::from_str(&args_content)
         .wrap_err_with(|| format!("Failed to parse args file: {}", config.args_file.display()))?;
 
+    let edition = parse_ros_edition(&args.ros_edition)?;
+    let type_hash = edition.type_hash();
+
     if config.verbose {
         println!("Generating C bindings for package: {}", args.package_name);
         println!("Output directory: {}", args.output_dir.display());
         println!("Interface files: {:?}", args.interface_files);
         println!("Dependencies: {:?}", args.dependencies);
+        println!("ROS edition: {:?}", edition);
     }
 
     // Create output directories
@@ -494,9 +523,6 @@ pub fn generate_c_from_args_file(config: GenerateCConfig) -> Result<()> {
         // Read file content
         let content = std::fs::read_to_string(file_path)
             .wrap_err_with(|| format!("Failed to read interface file: {}", file_path.display()))?;
-
-        // Generate placeholder type hash (in production, compute from IDL)
-        let type_hash = "0000000000000000000000000000000000000000000000000000000000000000";
 
         match extension {
             "msg" => {

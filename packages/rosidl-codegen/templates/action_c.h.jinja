@@ -119,7 +119,7 @@ static inline const char* {{ action_struct_name }}_get_type_name(void) {
 
 /// Get the type hash for {{ action_name }}
 static inline const char* {{ action_struct_name }}_get_type_hash(void) {
-    return "RIHS01_{{ type_hash }}";
+    return "{{ type_hash }}";
 }
 
 /// Get the nano_ros_action_type_t for this action type

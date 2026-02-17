@@ -105,14 +105,6 @@ pub struct GenerateCConfig {
     pub verbose: bool,
 }
 
-/// Generate bindings from package.xml dependencies
-///
-/// This is the main entry point for standalone usage. It:
-/// 1. Parses package.xml to find dependencies
-/// 2. Resolves transitive dependencies via ament index
-/// 3. Filters to interface packages (those with msg/srv/action)
-/// 4. Generates nros bindings for each
-/// 5. Optionally generates .cargo/config.toml
 /// Parse a ROS edition string into a `RosEdition` enum value.
 fn parse_ros_edition(s: &str) -> Result<RosEdition> {
     match s {
@@ -125,6 +117,14 @@ fn parse_ros_edition(s: &str) -> Result<RosEdition> {
     }
 }
 
+/// Generate bindings from package.xml dependencies.
+///
+/// This is the main entry point for standalone usage. It:
+/// 1. Parses package.xml to find dependencies
+/// 2. Resolves transitive dependencies via ament index
+/// 3. Filters to interface packages (those with msg/srv/action)
+/// 4. Generates nros bindings for each
+/// 5. Optionally generates .cargo/config.toml
 pub fn generate_from_package_xml(config: GenerateConfig) -> Result<()> {
     use package_xml::PackageXml;
 

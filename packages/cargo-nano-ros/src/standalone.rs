@@ -117,26 +117,7 @@ enum Command {
     },
 }
 
-fn run_generate(
-    manifest_path: PathBuf,
-    output: PathBuf,
-    config: bool,
-    nano_ros_path: Option<PathBuf>,
-    nano_ros_git: bool,
-    force: bool,
-    verbose: bool,
-    ros_edition: String,
-) -> Result<()> {
-    let cfg = GenerateConfig {
-        manifest_path,
-        output_dir: output,
-        generate_config: config,
-        nano_ros_path,
-        nano_ros_git,
-        force,
-        verbose,
-        ros_edition,
-    };
+fn run_generate(cfg: GenerateConfig) -> Result<()> {
     cargo_nano_ros::generate_from_package_xml(cfg)
 }
 
@@ -162,16 +143,16 @@ fn main() -> Result<()> {
             force,
             ros_edition,
         } => {
-            run_generate(
+            run_generate(GenerateConfig {
                 manifest_path,
-                output,
-                config,
+                output_dir: output,
+                generate_config: config,
                 nano_ros_path,
                 nano_ros_git,
                 force,
-                cli.verbose,
+                verbose: cli.verbose,
                 ros_edition,
-            )?;
+            })?;
         }
 
         Command::GenerateC { args_file } => {

@@ -1,8 +1,6 @@
 //! Integration tests for nros code generation
 
-use rosidl_codegen::{
-    RosEdition, generate_nano_ros_message_package, generate_nano_ros_service_package,
-};
+use rosidl_codegen::{RosEdition, generate_nros_message_package, generate_nros_service_package};
 use rosidl_parser::{parse_message, parse_service};
 use std::collections::HashSet;
 
@@ -12,7 +10,7 @@ fn test_generate_std_msgs_int32() {
     let msg = parse_message(msg_content).expect("Failed to parse Int32");
     let deps = HashSet::new();
 
-    let result = generate_nano_ros_message_package(
+    let result = generate_nros_message_package(
         "std_msgs",
         "Int32",
         &msg,
@@ -50,7 +48,7 @@ fn test_generate_std_msgs_string() {
     let msg = parse_message(msg_content).expect("Failed to parse String");
     let deps = HashSet::new();
 
-    let result = generate_nano_ros_message_package(
+    let result = generate_nros_message_package(
         "std_msgs",
         "String",
         &msg,
@@ -76,7 +74,7 @@ fn test_generate_std_msgs_header() {
     let msg = parse_message(msg_content).expect("Failed to parse Header");
     let deps = HashSet::new();
 
-    let result = generate_nano_ros_message_package(
+    let result = generate_nros_message_package(
         "std_msgs",
         "Header",
         &msg,
@@ -101,7 +99,7 @@ fn test_generate_geometry_msgs_point() {
     let msg = parse_message(msg_content).expect("Failed to parse Point");
     let deps = HashSet::new();
 
-    let result = generate_nano_ros_message_package(
+    let result = generate_nros_message_package(
         "geometry_msgs",
         "Point",
         &msg,
@@ -125,7 +123,7 @@ fn test_generate_sensor_msgs_range() {
     let msg = parse_message(msg_content).expect("Failed to parse Range");
     let deps = HashSet::new();
 
-    let result = generate_nano_ros_message_package(
+    let result = generate_nros_message_package(
         "sensor_msgs",
         "Range",
         &msg,
@@ -152,7 +150,7 @@ fn test_generate_example_interfaces_add_two_ints() {
     let srv = parse_service(srv_content).expect("Failed to parse AddTwoInts");
     let deps = HashSet::new();
 
-    let result = generate_nano_ros_service_package(
+    let result = generate_nros_service_package(
         "example_interfaces",
         "AddTwoInts",
         &srv,
@@ -183,7 +181,7 @@ fn test_generate_message_with_sequence() {
     let msg = parse_message(msg_content).expect("Failed to parse message");
     let deps = HashSet::new();
 
-    let result = generate_nano_ros_message_package(
+    let result = generate_nros_message_package(
         "test_msgs",
         "Arrays",
         &msg,
@@ -216,7 +214,7 @@ fn test_generate_message_with_bounded_sequence() {
     let msg = parse_message(msg_content).expect("Failed to parse message");
     let deps = HashSet::new();
 
-    let result = generate_nano_ros_message_package(
+    let result = generate_nros_message_package(
         "test_msgs",
         "BoundedSeq",
         &msg,
@@ -238,7 +236,7 @@ fn test_generate_message_with_array() {
     let msg = parse_message(msg_content).expect("Failed to parse message");
     let deps = HashSet::new();
 
-    let result = generate_nano_ros_message_package(
+    let result = generate_nros_message_package(
         "test_msgs",
         "Position",
         &msg,

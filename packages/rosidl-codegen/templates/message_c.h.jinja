@@ -56,8 +56,8 @@ int32_t {{ struct_name }}_serialize(const {{ struct_name }}* msg, uint8_t* buffe
 /// Returns 0 on success, -1 on error
 int32_t {{ struct_name }}_deserialize({{ struct_name }}* msg, const uint8_t* buffer, size_t buffer_size);
 
-/// Get the nano_ros_message_type_t for this message type
-const nano_ros_message_type_t* {{ struct_name }}_get_type_support(void);
+/// Get the nros_message_type_t for this message type
+const nros_message_type_t* {{ struct_name }}_get_type_support(void);
 
 #ifdef __cplusplus
 }

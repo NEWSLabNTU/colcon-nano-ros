@@ -160,7 +160,7 @@ pub struct ActionIdiomaticTemplate<'a> {
 
 /// Field metadata for nros code generation
 #[derive(Debug, Clone)]
-pub struct NanoRosField {
+pub struct NrosField {
     pub name: String,
     pub rust_type: String,
     /// CDR primitive method name (e.g., "i32", "f64", "u8") - empty if not primitive
@@ -181,12 +181,12 @@ pub struct NanoRosField {
 }
 
 #[derive(Template)]
-#[template(path = "message_nano_ros.rs.jinja", escape = "none")]
-pub struct MessageNanoRosTemplate<'a> {
+#[template(path = "message_nros.rs.jinja", escape = "none")]
+pub struct MessageNrosTemplate<'a> {
     pub package_name: &'a str,
     pub message_name: &'a str,
     pub type_hash: &'a str,
-    pub fields: Vec<NanoRosField>,
+    pub fields: Vec<NrosField>,
     pub constants: Vec<MessageConstant>,
     /// True if there are fields to serialize/deserialize
     pub has_fields: bool,
@@ -195,14 +195,14 @@ pub struct MessageNanoRosTemplate<'a> {
 }
 
 #[derive(Template)]
-#[template(path = "service_nano_ros.rs.jinja", escape = "none")]
-pub struct ServiceNanoRosTemplate<'a> {
+#[template(path = "service_nros.rs.jinja", escape = "none")]
+pub struct ServiceNrosTemplate<'a> {
     pub package_name: &'a str,
     pub service_name: &'a str,
     pub type_hash: &'a str,
-    pub request_fields: Vec<NanoRosField>,
+    pub request_fields: Vec<NrosField>,
     pub request_constants: Vec<MessageConstant>,
-    pub response_fields: Vec<NanoRosField>,
+    pub response_fields: Vec<NrosField>,
     pub response_constants: Vec<MessageConstant>,
     /// True if request has fields to serialize/deserialize
     pub has_request_fields: bool,
@@ -213,32 +213,32 @@ pub struct ServiceNanoRosTemplate<'a> {
 }
 
 #[derive(Template)]
-#[template(path = "cargo_nano_ros.toml.jinja", escape = "none")]
-pub struct CargoNanoRosTomlTemplate<'a> {
+#[template(path = "cargo_nros.toml.jinja", escape = "none")]
+pub struct CargoNrosTomlTemplate<'a> {
     pub package_name: &'a str,
     pub package_version: &'a str,
     pub dependencies: &'a [String],
 }
 
 #[derive(Template)]
-#[template(path = "lib_nano_ros.rs.jinja", escape = "none")]
-pub struct LibNanoRosRsTemplate {
+#[template(path = "lib_nros.rs.jinja", escape = "none")]
+pub struct LibNrosRsTemplate {
     pub has_messages: bool,
     pub has_services: bool,
     pub has_actions: bool,
 }
 
 #[derive(Template)]
-#[template(path = "action_nano_ros.rs.jinja", escape = "none")]
-pub struct ActionNanoRosTemplate<'a> {
+#[template(path = "action_nros.rs.jinja", escape = "none")]
+pub struct ActionNrosTemplate<'a> {
     pub package_name: &'a str,
     pub action_name: &'a str,
     pub type_hash: &'a str,
-    pub goal_fields: Vec<NanoRosField>,
+    pub goal_fields: Vec<NrosField>,
     pub goal_constants: Vec<MessageConstant>,
-    pub result_fields: Vec<NanoRosField>,
+    pub result_fields: Vec<NrosField>,
     pub result_constants: Vec<MessageConstant>,
-    pub feedback_fields: Vec<NanoRosField>,
+    pub feedback_fields: Vec<NrosField>,
     pub feedback_constants: Vec<MessageConstant>,
     /// True if goal has fields to serialize/deserialize
     pub has_goal_fields: bool,

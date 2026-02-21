@@ -11,8 +11,8 @@
 use crate::ament::Package;
 use eyre::{Result, WrapErr};
 use rosidl_codegen::{
-    RosEdition, generate_nano_ros_action_package, generate_nano_ros_message_package,
-    generate_nano_ros_service_package,
+    RosEdition, generate_nros_action_package, generate_nros_message_package,
+    generate_nros_service_package,
     utils::{extract_dependencies, to_snake_case},
 };
 use std::collections::HashSet;
@@ -77,7 +77,7 @@ pub fn generate_package(
         let msg_deps = extract_dependencies(&parsed_msg);
         all_dependencies.extend(msg_deps);
 
-        let generated = generate_nano_ros_message_package(
+        let generated = generate_nros_message_package(
             &package.name,
             msg_name,
             &parsed_msg,
@@ -113,7 +113,7 @@ pub fn generate_package(
             all_dependencies.extend(req_deps);
             all_dependencies.extend(resp_deps);
 
-            let generated = generate_nano_ros_service_package(
+            let generated = generate_nros_service_package(
                 &package.name,
                 srv_name,
                 &parsed_srv,
@@ -154,7 +154,7 @@ pub fn generate_package(
             all_dependencies.extend(result_deps);
             all_dependencies.extend(feedback_deps);
 
-            let generated = generate_nano_ros_action_package(
+            let generated = generate_nros_action_package(
                 &package.name,
                 action_name,
                 &parsed_action,
@@ -366,7 +366,7 @@ mod tests {
     }
 
     #[test]
-    fn test_generate_nano_ros_package() {
+    fn test_generate_nros_package() {
         let temp_dir = tempfile::tempdir().unwrap();
         let package = create_test_package(temp_dir.path());
         let output_dir = temp_dir.path().join("output");

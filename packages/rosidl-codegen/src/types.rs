@@ -36,7 +36,7 @@ pub enum CodegenBackend {
     /// nros backend - generates single-layer pure Rust types
     /// Uses heapless collections for no_std compatibility
     /// No C dependencies, suitable for embedded RTOS platforms
-    NanoRos,
+    Nros,
 }
 
 /// Extension trait for FieldType providing type checking methods
@@ -490,7 +490,7 @@ pub const NROS_DEFAULT_SEQUENCE_CAPACITY: usize = 64;
 
 /// Configuration for nros code generation mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum NanoRosCodegenMode {
+pub enum NrosCodegenMode {
     /// Crate mode: each package is a separate crate.
     /// Self-refs use `crate::msg::Type`, cross-refs use `pkg::msg::Type`.
     #[default]
@@ -504,17 +504,17 @@ pub enum NanoRosCodegenMode {
 /// Get the Rust type string for a field type using nros backend
 /// Returns heapless types for no_std compatibility
 /// `current_package` is used to detect self-references and use `crate::` instead of `pkg::`
-pub fn nano_ros_type_for_field(field_type: &FieldType, current_package: Option<&str>) -> String {
-    nano_ros_type_for_field_with_mode(field_type, current_package, NanoRosCodegenMode::Crate)
+pub fn nros_type_for_field(field_type: &FieldType, current_package: Option<&str>) -> String {
+    nros_type_for_field_with_mode(field_type, current_package, NrosCodegenMode::Crate)
 }
 
 /// Get the Rust type string for a field type using nros backend with explicit mode
-pub fn nano_ros_type_for_field_with_mode(
+pub fn nros_type_for_field_with_mode(
     field_type: &FieldType,
     current_package: Option<&str>,
-    mode: NanoRosCodegenMode,
+    mode: NrosCodegenMode,
 ) -> String {
-    let inline = mode == NanoRosCodegenMode::Inline;
+    let inline = mode == NrosCodegenMode::Inline;
 
     match field_type {
         FieldType::Primitive(prim) => prim.rust_type().to_string(),
@@ -559,12 +559,12 @@ pub fn nano_ros_type_for_field_with_mode(
         }
 
         FieldType::Array { element_type, size } => {
-            let elem = nano_ros_type_for_field_with_mode(element_type, current_package, mode);
+            let elem = nros_type_for_field_with_mode(element_type, current_package, mode);
             format!("[{}; {}]", elem, size)
         }
 
         FieldType::Sequence { element_type } => {
-            let elem = nano_ros_type_for_field_with_mode(element_type, current_package, mode);
+            let elem = nros_type_for_field_with_mode(element_type, current_package, mode);
             if inline {
                 format!(
                     "nros_core::heapless::Vec<{}, {}>",
@@ -582,7 +582,7 @@ pub fn nano_ros_type_for_field_with_mode(
             element_type,
             max_size,
         } => {
-            let elem = nano_ros_type_for_field_with_mode(element_type, current_package, mode);
+            let elem = nros_type_for_field_with_mode(element_type, current_package, mode);
             if inline {
                 format!("nros_core::heapless::Vec<{}, {}>", elem, max_size)
             } else {
@@ -626,8 +626,8 @@ pub fn nano_ros_type_for_field_with_mode(
 }
 
 /// Get the Rust type string for a constant using nros backend
-/// Similar to `nano_ros_type_for_field` but uses `&'static str` for string types
-pub fn nano_ros_type_for_constant(field_type: &FieldType) -> String {
+/// Similar to `nros_type_for_field` but uses `&'static str` for string types
+pub fn nros_type_for_constant(field_type: &FieldType) -> String {
     match field_type {
         FieldType::Primitive(prim) => prim.rust_type().to_string(),
 
@@ -638,12 +638,12 @@ pub fn nano_ros_type_for_constant(field_type: &FieldType) -> String {
         | FieldType::BoundedWString(_) => "&'static str".to_string(),
 
         FieldType::Array { element_type, size } => {
-            let elem = nano_ros_type_for_constant(element_type);
+            let elem = nros_type_for_constant(element_type);
             format!("[{}; {}]", elem, size)
         }
 
         FieldType::Sequence { element_type } | FieldType::BoundedSequence { element_type, .. } => {
-            let elem = nano_ros_type_for_constant(element_type);
+            let elem = nros_type_for_constant(element_type);
             format!("&'static [{}]", elem)
         }
 

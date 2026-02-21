@@ -1,17 +1,16 @@
 use crate::templates::{
-    ActionCHeaderTemplate, ActionCSourceTemplate, ActionIdiomaticTemplate, ActionNanoRosTemplate,
-    ActionRmwTemplate, BuildRsTemplate, CConstant, CField, CargoNanoRosTomlTemplate,
-    CargoTomlTemplate, FieldKind, IdiomaticField, LibNanoRosRsTemplate, LibRsTemplate,
+    ActionCHeaderTemplate, ActionCSourceTemplate, ActionIdiomaticTemplate, ActionNrosTemplate,
+    ActionRmwTemplate, BuildRsTemplate, CConstant, CField, CargoNrosTomlTemplate,
+    CargoTomlTemplate, FieldKind, IdiomaticField, LibNrosRsTemplate, LibRsTemplate,
     MessageCHeaderTemplate, MessageCSourceTemplate, MessageConstant, MessageIdiomaticTemplate,
-    MessageNanoRosTemplate, MessageRmwTemplate, NanoRosField, RmwField, ServiceCHeaderTemplate,
-    ServiceCSourceTemplate, ServiceIdiomaticTemplate, ServiceNanoRosTemplate, ServiceRmwTemplate,
+    MessageNrosTemplate, MessageRmwTemplate, NrosField, RmwField, ServiceCHeaderTemplate,
+    ServiceCSourceTemplate, ServiceIdiomaticTemplate, ServiceNrosTemplate, ServiceRmwTemplate,
 };
 use crate::types::{
-    C_DEFAULT_SEQUENCE_CAPACITY, NanoRosCodegenMode, RosEdition, c_array_suffix_for_field,
+    C_DEFAULT_SEQUENCE_CAPACITY, NrosCodegenMode, RosEdition, c_array_suffix_for_field,
     c_cdr_read_method, c_cdr_write_method, c_type_for_constant, c_type_for_field,
-    constant_value_to_rust, escape_keyword, nano_ros_type_for_constant,
-    nano_ros_type_for_field_with_mode, rust_type_for_constant, rust_type_for_field,
-    to_c_package_name,
+    constant_value_to_rust, escape_keyword, nros_type_for_constant, nros_type_for_field_with_mode,
+    rust_type_for_constant, rust_type_for_field, to_c_package_name,
 };
 use crate::utils::{extract_dependencies, needs_big_array, to_snake_case};
 use askama::Template;
@@ -478,14 +477,14 @@ pub fn generate_action_package(
 // ============================================================================
 
 /// Generated nros message package
-pub struct GeneratedNanoRosPackage {
+pub struct GeneratedNrosPackage {
     pub cargo_toml: String,
     pub lib_rs: String,
     pub message_rs: String,
 }
 
 /// Generated nros service package
-pub struct GeneratedNanoRosServicePackage {
+pub struct GeneratedNrosServicePackage {
     pub cargo_toml: String,
     pub lib_rs: String,
     pub service_rs: String,
@@ -511,14 +510,14 @@ fn primitive_to_cdr_method(prim: &rosidl_parser::PrimitiveType) -> String {
     }
 }
 
-/// Convert a Message field to NanoRosField with explicit codegen mode
-fn field_to_nano_ros_field_with_mode(
+/// Convert a Message field to NrosField with explicit codegen mode
+fn field_to_nros_field_with_mode(
     field: &rosidl_parser::Field,
     package_name: &str,
-    mode: NanoRosCodegenMode,
-) -> NanoRosField {
+    mode: NrosCodegenMode,
+) -> NrosField {
     let name = escape_keyword(&field.name);
-    let rust_type = nano_ros_type_for_field_with_mode(&field.field_type, Some(package_name), mode);
+    let rust_type = nros_type_for_field_with_mode(&field.field_type, Some(package_name), mode);
 
     // Determine field properties
     let (is_primitive, primitive_method) = match &field.field_type {
@@ -562,7 +561,7 @@ fn field_to_nano_ros_field_with_mode(
             _ => (false, false, String::new()),
         };
 
-    NanoRosField {
+    NrosField {
         name,
         rust_type,
         primitive_method,
@@ -578,20 +577,20 @@ fn field_to_nano_ros_field_with_mode(
     }
 }
 
-/// Convert a Message field to NanoRosField
-fn field_to_nano_ros_field(field: &rosidl_parser::Field, package_name: &str) -> NanoRosField {
-    field_to_nano_ros_field_with_mode(field, package_name, NanoRosCodegenMode::Crate)
+/// Convert a Message field to NrosField
+fn field_to_nros_field(field: &rosidl_parser::Field, package_name: &str) -> NrosField {
+    field_to_nros_field_with_mode(field, package_name, NrosCodegenMode::Crate)
 }
 
 /// Generate a nros message package
-pub fn generate_nano_ros_message_package(
+pub fn generate_nros_message_package(
     package_name: &str,
     message_name: &str,
     message: &Message,
     all_dependencies: &HashSet<String>,
     package_version: &str,
     edition: RosEdition,
-) -> Result<GeneratedNanoRosPackage, GeneratorError> {
+) -> Result<GeneratedNrosPackage, GeneratorError> {
     // Extract dependencies from this specific message
     let msg_deps = extract_dependencies(message);
 
@@ -602,7 +601,7 @@ pub fn generate_nano_ros_message_package(
     all_deps.dedup();
 
     // Generate Cargo.toml
-    let cargo_toml_template = CargoNanoRosTomlTemplate {
+    let cargo_toml_template = CargoNrosTomlTemplate {
         package_name,
         package_version,
         dependencies: &all_deps,
@@ -610,7 +609,7 @@ pub fn generate_nano_ros_message_package(
     let cargo_toml = cargo_toml_template.render()?;
 
     // Generate lib.rs
-    let lib_rs_template = LibNanoRosRsTemplate {
+    let lib_rs_template = LibNrosRsTemplate {
         has_messages: true,
         has_services: false,
         has_actions: false,
@@ -618,10 +617,10 @@ pub fn generate_nano_ros_message_package(
     let lib_rs = lib_rs_template.render()?;
 
     // Generate message fields
-    let fields: Vec<NanoRosField> = message
+    let fields: Vec<NrosField> = message
         .fields
         .iter()
-        .map(|f| field_to_nano_ros_field(f, package_name))
+        .map(|f| field_to_nros_field(f, package_name))
         .collect();
 
     // Generate constants
@@ -630,7 +629,7 @@ pub fn generate_nano_ros_message_package(
         .iter()
         .map(|c| MessageConstant {
             name: c.name.clone(),
-            rust_type: nano_ros_type_for_constant(&c.constant_type),
+            rust_type: nros_type_for_constant(&c.constant_type),
             value: constant_value_to_rust(&c.value),
         })
         .collect();
@@ -638,7 +637,7 @@ pub fn generate_nano_ros_message_package(
     let type_hash = edition.type_hash();
 
     let has_fields = !fields.is_empty();
-    let message_template = MessageNanoRosTemplate {
+    let message_template = MessageNrosTemplate {
         package_name,
         message_name,
         type_hash,
@@ -649,7 +648,7 @@ pub fn generate_nano_ros_message_package(
     };
     let message_rs = message_template.render()?;
 
-    Ok(GeneratedNanoRosPackage {
+    Ok(GeneratedNrosPackage {
         cargo_toml,
         lib_rs,
         message_rs,
@@ -657,14 +656,14 @@ pub fn generate_nano_ros_message_package(
 }
 
 /// Generate a nros service package
-pub fn generate_nano_ros_service_package(
+pub fn generate_nros_service_package(
     package_name: &str,
     service_name: &str,
     service: &Service,
     all_dependencies: &HashSet<String>,
     package_version: &str,
     edition: RosEdition,
-) -> Result<GeneratedNanoRosServicePackage, GeneratorError> {
+) -> Result<GeneratedNrosServicePackage, GeneratorError> {
     // Extract dependencies from request and response
     let mut req_deps = extract_dependencies(&service.request);
     let resp_deps = extract_dependencies(&service.response);
@@ -677,7 +676,7 @@ pub fn generate_nano_ros_service_package(
     all_deps.dedup();
 
     // Generate Cargo.toml
-    let cargo_toml_template = CargoNanoRosTomlTemplate {
+    let cargo_toml_template = CargoNrosTomlTemplate {
         package_name,
         package_version,
         dependencies: &all_deps,
@@ -685,7 +684,7 @@ pub fn generate_nano_ros_service_package(
     let cargo_toml = cargo_toml_template.render()?;
 
     // Generate lib.rs
-    let lib_rs_template = LibNanoRosRsTemplate {
+    let lib_rs_template = LibNrosRsTemplate {
         has_messages: false,
         has_services: true,
         has_actions: false,
@@ -693,11 +692,11 @@ pub fn generate_nano_ros_service_package(
     let lib_rs = lib_rs_template.render()?;
 
     // Generate request fields
-    let request_fields: Vec<NanoRosField> = service
+    let request_fields: Vec<NrosField> = service
         .request
         .fields
         .iter()
-        .map(|f| field_to_nano_ros_field(f, package_name))
+        .map(|f| field_to_nros_field(f, package_name))
         .collect();
 
     let request_constants: Vec<MessageConstant> = service
@@ -706,17 +705,17 @@ pub fn generate_nano_ros_service_package(
         .iter()
         .map(|c| MessageConstant {
             name: c.name.clone(),
-            rust_type: nano_ros_type_for_constant(&c.constant_type),
+            rust_type: nros_type_for_constant(&c.constant_type),
             value: constant_value_to_rust(&c.value),
         })
         .collect();
 
     // Generate response fields
-    let response_fields: Vec<NanoRosField> = service
+    let response_fields: Vec<NrosField> = service
         .response
         .fields
         .iter()
-        .map(|f| field_to_nano_ros_field(f, package_name))
+        .map(|f| field_to_nros_field(f, package_name))
         .collect();
 
     let response_constants: Vec<MessageConstant> = service
@@ -725,7 +724,7 @@ pub fn generate_nano_ros_service_package(
         .iter()
         .map(|c| MessageConstant {
             name: c.name.clone(),
-            rust_type: nano_ros_type_for_constant(&c.constant_type),
+            rust_type: nros_type_for_constant(&c.constant_type),
             value: constant_value_to_rust(&c.value),
         })
         .collect();
@@ -734,7 +733,7 @@ pub fn generate_nano_ros_service_package(
 
     let has_request_fields = !request_fields.is_empty();
     let has_response_fields = !response_fields.is_empty();
-    let service_template = ServiceNanoRosTemplate {
+    let service_template = ServiceNrosTemplate {
         package_name,
         service_name,
         type_hash,
@@ -748,7 +747,7 @@ pub fn generate_nano_ros_service_package(
     };
     let service_rs = service_template.render()?;
 
-    Ok(GeneratedNanoRosServicePackage {
+    Ok(GeneratedNrosServicePackage {
         cargo_toml,
         lib_rs,
         service_rs,
@@ -756,21 +755,21 @@ pub fn generate_nano_ros_service_package(
 }
 
 /// Generated nros action package
-pub struct GeneratedNanoRosActionPackage {
+pub struct GeneratedNrosActionPackage {
     pub cargo_toml: String,
     pub lib_rs: String,
     pub action_rs: String,
 }
 
 /// Generate a nros action package
-pub fn generate_nano_ros_action_package(
+pub fn generate_nros_action_package(
     package_name: &str,
     action_name: &str,
     action: &Action,
     all_dependencies: &HashSet<String>,
     package_version: &str,
     edition: RosEdition,
-) -> Result<GeneratedNanoRosActionPackage, GeneratorError> {
+) -> Result<GeneratedNrosActionPackage, GeneratorError> {
     // Extract dependencies from goal, result, and feedback
     let mut goal_deps = extract_dependencies(&action.spec.goal);
     let result_deps = extract_dependencies(&action.spec.result);
@@ -785,7 +784,7 @@ pub fn generate_nano_ros_action_package(
     all_deps.dedup();
 
     // Generate Cargo.toml
-    let cargo_toml_template = CargoNanoRosTomlTemplate {
+    let cargo_toml_template = CargoNrosTomlTemplate {
         package_name,
         package_version,
         dependencies: &all_deps,
@@ -793,7 +792,7 @@ pub fn generate_nano_ros_action_package(
     let cargo_toml = cargo_toml_template.render()?;
 
     // Generate lib.rs
-    let lib_rs_template = LibNanoRosRsTemplate {
+    let lib_rs_template = LibNrosRsTemplate {
         has_messages: false,
         has_services: false,
         has_actions: true,
@@ -801,12 +800,12 @@ pub fn generate_nano_ros_action_package(
     let lib_rs = lib_rs_template.render()?;
 
     // Generate goal fields
-    let goal_fields: Vec<NanoRosField> = action
+    let goal_fields: Vec<NrosField> = action
         .spec
         .goal
         .fields
         .iter()
-        .map(|f| field_to_nano_ros_field(f, package_name))
+        .map(|f| field_to_nros_field(f, package_name))
         .collect();
 
     let goal_constants: Vec<MessageConstant> = action
@@ -816,18 +815,18 @@ pub fn generate_nano_ros_action_package(
         .iter()
         .map(|c| MessageConstant {
             name: c.name.clone(),
-            rust_type: nano_ros_type_for_constant(&c.constant_type),
+            rust_type: nros_type_for_constant(&c.constant_type),
             value: constant_value_to_rust(&c.value),
         })
         .collect();
 
     // Generate result fields
-    let result_fields: Vec<NanoRosField> = action
+    let result_fields: Vec<NrosField> = action
         .spec
         .result
         .fields
         .iter()
-        .map(|f| field_to_nano_ros_field(f, package_name))
+        .map(|f| field_to_nros_field(f, package_name))
         .collect();
 
     let result_constants: Vec<MessageConstant> = action
@@ -837,18 +836,18 @@ pub fn generate_nano_ros_action_package(
         .iter()
         .map(|c| MessageConstant {
             name: c.name.clone(),
-            rust_type: nano_ros_type_for_constant(&c.constant_type),
+            rust_type: nros_type_for_constant(&c.constant_type),
             value: constant_value_to_rust(&c.value),
         })
         .collect();
 
     // Generate feedback fields
-    let feedback_fields: Vec<NanoRosField> = action
+    let feedback_fields: Vec<NrosField> = action
         .spec
         .feedback
         .fields
         .iter()
-        .map(|f| field_to_nano_ros_field(f, package_name))
+        .map(|f| field_to_nros_field(f, package_name))
         .collect();
 
     let feedback_constants: Vec<MessageConstant> = action
@@ -858,7 +857,7 @@ pub fn generate_nano_ros_action_package(
         .iter()
         .map(|c| MessageConstant {
             name: c.name.clone(),
-            rust_type: nano_ros_type_for_constant(&c.constant_type),
+            rust_type: nros_type_for_constant(&c.constant_type),
             value: constant_value_to_rust(&c.value),
         })
         .collect();
@@ -869,7 +868,7 @@ pub fn generate_nano_ros_action_package(
     let has_result_fields = !result_fields.is_empty();
     let has_feedback_fields = !feedback_fields.is_empty();
 
-    let action_template = ActionNanoRosTemplate {
+    let action_template = ActionNrosTemplate {
         package_name,
         action_name,
         type_hash,
@@ -886,7 +885,7 @@ pub fn generate_nano_ros_action_package(
     };
     let action_rs = action_template.render()?;
 
-    Ok(GeneratedNanoRosActionPackage {
+    Ok(GeneratedNrosActionPackage {
         cargo_toml,
         lib_rs,
         action_rs,
@@ -899,20 +898,20 @@ pub fn generate_nano_ros_action_package(
 
 /// Generate a single message's Rust code in inline mode.
 ///
-/// Unlike `generate_nano_ros_message_package`, this only returns the rendered
+/// Unlike `generate_nros_message_package`, this only returns the rendered
 /// message code (no Cargo.toml or lib.rs). Cross-package references use
 /// `super::super::super::pkg::msg::Type` paths.
-pub fn generate_nano_ros_inline_message(
+pub fn generate_nros_inline_message(
     package_name: &str,
     message_name: &str,
     message: &Message,
     edition: RosEdition,
 ) -> Result<String, GeneratorError> {
-    let mode = NanoRosCodegenMode::Inline;
-    let fields: Vec<NanoRosField> = message
+    let mode = NrosCodegenMode::Inline;
+    let fields: Vec<NrosField> = message
         .fields
         .iter()
-        .map(|f| field_to_nano_ros_field_with_mode(f, package_name, mode))
+        .map(|f| field_to_nros_field_with_mode(f, package_name, mode))
         .collect();
 
     let constants: Vec<MessageConstant> = message
@@ -920,7 +919,7 @@ pub fn generate_nano_ros_inline_message(
         .iter()
         .map(|c| MessageConstant {
             name: c.name.clone(),
-            rust_type: nano_ros_type_for_constant(&c.constant_type),
+            rust_type: nros_type_for_constant(&c.constant_type),
             value: constant_value_to_rust(&c.value),
         })
         .collect();
@@ -928,7 +927,7 @@ pub fn generate_nano_ros_inline_message(
     let type_hash = edition.type_hash();
     let has_fields = !fields.is_empty();
 
-    let template = MessageNanoRosTemplate {
+    let template = MessageNrosTemplate {
         package_name,
         message_name,
         type_hash,
@@ -942,19 +941,19 @@ pub fn generate_nano_ros_inline_message(
 }
 
 /// Generate a single service's Rust code in inline mode.
-pub fn generate_nano_ros_inline_service(
+pub fn generate_nros_inline_service(
     package_name: &str,
     service_name: &str,
     service: &Service,
     edition: RosEdition,
 ) -> Result<String, GeneratorError> {
-    let mode = NanoRosCodegenMode::Inline;
+    let mode = NrosCodegenMode::Inline;
 
-    let request_fields: Vec<NanoRosField> = service
+    let request_fields: Vec<NrosField> = service
         .request
         .fields
         .iter()
-        .map(|f| field_to_nano_ros_field_with_mode(f, package_name, mode))
+        .map(|f| field_to_nros_field_with_mode(f, package_name, mode))
         .collect();
 
     let request_constants: Vec<MessageConstant> = service
@@ -963,16 +962,16 @@ pub fn generate_nano_ros_inline_service(
         .iter()
         .map(|c| MessageConstant {
             name: c.name.clone(),
-            rust_type: nano_ros_type_for_constant(&c.constant_type),
+            rust_type: nros_type_for_constant(&c.constant_type),
             value: constant_value_to_rust(&c.value),
         })
         .collect();
 
-    let response_fields: Vec<NanoRosField> = service
+    let response_fields: Vec<NrosField> = service
         .response
         .fields
         .iter()
-        .map(|f| field_to_nano_ros_field_with_mode(f, package_name, mode))
+        .map(|f| field_to_nros_field_with_mode(f, package_name, mode))
         .collect();
 
     let response_constants: Vec<MessageConstant> = service
@@ -981,7 +980,7 @@ pub fn generate_nano_ros_inline_service(
         .iter()
         .map(|c| MessageConstant {
             name: c.name.clone(),
-            rust_type: nano_ros_type_for_constant(&c.constant_type),
+            rust_type: nros_type_for_constant(&c.constant_type),
             value: constant_value_to_rust(&c.value),
         })
         .collect();
@@ -990,7 +989,7 @@ pub fn generate_nano_ros_inline_service(
     let has_request_fields = !request_fields.is_empty();
     let has_response_fields = !response_fields.is_empty();
 
-    let template = ServiceNanoRosTemplate {
+    let template = ServiceNrosTemplate {
         package_name,
         service_name,
         type_hash,
@@ -1007,20 +1006,20 @@ pub fn generate_nano_ros_inline_service(
 }
 
 /// Generate a single action's Rust code in inline mode.
-pub fn generate_nano_ros_inline_action(
+pub fn generate_nros_inline_action(
     package_name: &str,
     action_name: &str,
     action: &Action,
     edition: RosEdition,
 ) -> Result<String, GeneratorError> {
-    let mode = NanoRosCodegenMode::Inline;
+    let mode = NrosCodegenMode::Inline;
 
-    let goal_fields: Vec<NanoRosField> = action
+    let goal_fields: Vec<NrosField> = action
         .spec
         .goal
         .fields
         .iter()
-        .map(|f| field_to_nano_ros_field_with_mode(f, package_name, mode))
+        .map(|f| field_to_nros_field_with_mode(f, package_name, mode))
         .collect();
 
     let goal_constants: Vec<MessageConstant> = action
@@ -1030,17 +1029,17 @@ pub fn generate_nano_ros_inline_action(
         .iter()
         .map(|c| MessageConstant {
             name: c.name.clone(),
-            rust_type: nano_ros_type_for_constant(&c.constant_type),
+            rust_type: nros_type_for_constant(&c.constant_type),
             value: constant_value_to_rust(&c.value),
         })
         .collect();
 
-    let result_fields: Vec<NanoRosField> = action
+    let result_fields: Vec<NrosField> = action
         .spec
         .result
         .fields
         .iter()
-        .map(|f| field_to_nano_ros_field_with_mode(f, package_name, mode))
+        .map(|f| field_to_nros_field_with_mode(f, package_name, mode))
         .collect();
 
     let result_constants: Vec<MessageConstant> = action
@@ -1050,17 +1049,17 @@ pub fn generate_nano_ros_inline_action(
         .iter()
         .map(|c| MessageConstant {
             name: c.name.clone(),
-            rust_type: nano_ros_type_for_constant(&c.constant_type),
+            rust_type: nros_type_for_constant(&c.constant_type),
             value: constant_value_to_rust(&c.value),
         })
         .collect();
 
-    let feedback_fields: Vec<NanoRosField> = action
+    let feedback_fields: Vec<NrosField> = action
         .spec
         .feedback
         .fields
         .iter()
-        .map(|f| field_to_nano_ros_field_with_mode(f, package_name, mode))
+        .map(|f| field_to_nros_field_with_mode(f, package_name, mode))
         .collect();
 
     let feedback_constants: Vec<MessageConstant> = action
@@ -1070,7 +1069,7 @@ pub fn generate_nano_ros_inline_action(
         .iter()
         .map(|c| MessageConstant {
             name: c.name.clone(),
-            rust_type: nano_ros_type_for_constant(&c.constant_type),
+            rust_type: nros_type_for_constant(&c.constant_type),
             value: constant_value_to_rust(&c.value),
         })
         .collect();
@@ -1080,7 +1079,7 @@ pub fn generate_nano_ros_inline_action(
     let has_result_fields = !result_fields.is_empty();
     let has_feedback_fields = !feedback_fields.is_empty();
 
-    let template = ActionNanoRosTemplate {
+    let template = ActionNrosTemplate {
         package_name,
         action_name,
         type_hash,
@@ -1787,11 +1786,11 @@ mod tests {
     // ========================================================================
 
     #[test]
-    fn test_nano_ros_simple_message_generation() {
+    fn test_nros_simple_message_generation() {
         let msg = parse_message("int32 x\nfloat64 y\nstring name\n").unwrap();
         let deps = HashSet::new();
 
-        let result = generate_nano_ros_message_package(
+        let result = generate_nros_message_package(
             "test_msgs",
             "Point",
             &msg,
@@ -1824,11 +1823,11 @@ mod tests {
     }
 
     #[test]
-    fn test_nano_ros_message_with_sequence() {
+    fn test_nros_message_with_sequence() {
         let msg = parse_message("int32[] data\n").unwrap();
         let deps = HashSet::new();
 
-        let result = generate_nano_ros_message_package(
+        let result = generate_nros_message_package(
             "test_msgs",
             "IntArray",
             &msg,
@@ -1844,11 +1843,11 @@ mod tests {
     }
 
     #[test]
-    fn test_nano_ros_service_generation() {
+    fn test_nros_service_generation() {
         let srv = parse_service("int64 a\nint64 b\n---\nint64 sum\n").unwrap();
         let deps = HashSet::new();
 
-        let result = generate_nano_ros_service_package(
+        let result = generate_nros_service_package(
             "test_srvs",
             "AddTwoInts",
             &srv,
@@ -1878,13 +1877,13 @@ mod tests {
     }
 
     #[test]
-    fn test_nano_ros_action_generation() {
+    fn test_nros_action_generation() {
         let action =
             parse_action("int32 order\n---\nint32[] sequence\n---\nint32[] partial_sequence\n")
                 .unwrap();
         let deps = HashSet::new();
 
-        let result = generate_nano_ros_action_package(
+        let result = generate_nros_action_package(
             "example_interfaces",
             "Fibonacci",
             &action,
@@ -1941,9 +1940,9 @@ mod tests {
 
         // Check source file
         assert!(pkg.source.contains("test_msgs_msg_point.h"));
-        assert!(pkg.source.contains("nano_ros_cdr_write_i32"));
-        assert!(pkg.source.contains("nano_ros_cdr_write_f64"));
-        assert!(pkg.source.contains("nano_ros_cdr_write_bool"));
+        assert!(pkg.source.contains("nros_cdr_write_i32"));
+        assert!(pkg.source.contains("nros_cdr_write_f64"));
+        assert!(pkg.source.contains("nros_cdr_write_bool"));
 
         // Check file names
         assert_eq!(pkg.header_name, "test_msgs_msg_point.h");
@@ -1960,7 +1959,7 @@ mod tests {
 
         let pkg = result.unwrap();
         assert!(pkg.header.contains("char name[256]"));
-        assert!(pkg.source.contains("nano_ros_cdr_write_string"));
+        assert!(pkg.source.contains("nros_cdr_write_string"));
     }
 
     #[test]

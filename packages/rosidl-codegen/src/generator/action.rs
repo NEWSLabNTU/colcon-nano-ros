@@ -1,0 +1,560 @@
+use super::common::{
+    GeneratorError, build_c_field, determine_field_kind, field_to_nros_field,
+    field_to_nros_field_with_mode,
+};
+use crate::templates::{
+    ActionCHeaderTemplate, ActionCSourceTemplate, ActionIdiomaticTemplate, ActionNrosTemplate,
+    ActionRmwTemplate, BuildRsTemplate, CConstant, CField, CargoNrosTomlTemplate,
+    CargoTomlTemplate, IdiomaticField, LibNrosRsTemplate, LibRsTemplate, MessageConstant,
+    NrosField, RmwField,
+};
+use crate::types::{
+    NrosCodegenMode, RosEdition, c_type_for_constant, constant_value_to_rust, escape_keyword,
+    nros_type_for_constant, rust_type_for_constant, rust_type_for_field, to_c_package_name,
+};
+use crate::utils::{extract_dependencies, needs_big_array, to_snake_case};
+use askama::Template;
+use rosidl_parser::{Action, FieldType, Message};
+use std::collections::HashSet;
+
+pub struct GeneratedActionPackage {
+    pub cargo_toml: String,
+    pub build_rs: String,
+    pub lib_rs: String,
+    pub action_rmw: String,
+    pub action_idiomatic: String,
+}
+
+/// Generate a complete ROS 2 action package with both RMW and idiomatic layers
+pub fn generate_action_package(
+    package_name: &str,
+    action_name: &str,
+    action: &Action,
+    all_dependencies: &HashSet<String>,
+) -> Result<GeneratedActionPackage, GeneratorError> {
+    // Extract dependencies from goal, result, and feedback
+    let mut goal_deps = extract_dependencies(&action.spec.goal);
+    let result_deps = extract_dependencies(&action.spec.result);
+    let feedback_deps = extract_dependencies(&action.spec.feedback);
+    goal_deps.extend(result_deps);
+    goal_deps.extend(feedback_deps);
+
+    // Combine with externally provided dependencies
+    let mut all_deps: Vec<String> = all_dependencies.iter().cloned().collect();
+    all_deps.extend(goal_deps);
+    all_deps.sort();
+    all_deps.dedup();
+
+    // Check if we need serde's big-array feature
+    let needs_big_array_feature = needs_big_array(&action.spec.goal)
+        || needs_big_array(&action.spec.result)
+        || needs_big_array(&action.spec.feedback);
+
+    // Generate Cargo.toml
+    let cargo_toml_template = CargoTomlTemplate {
+        package_name,
+        dependencies: &all_deps,
+        needs_big_array: needs_big_array_feature,
+    };
+    let cargo_toml = cargo_toml_template.render()?;
+
+    // Generate build.rs
+    let build_rs_template = BuildRsTemplate;
+    let build_rs = build_rs_template.render()?;
+
+    // Generate lib.rs
+    let lib_rs_template = LibRsTemplate {
+        has_messages: false,
+        has_services: false,
+        has_actions: true,
+    };
+    let lib_rs = lib_rs_template.render()?;
+
+    // Helper functions to convert Message to field vectors
+    let message_to_rmw_fields = |msg: &Message| {
+        msg.fields
+            .iter()
+            .map(|f| RmwField {
+                name: escape_keyword(&f.name),
+                rust_type: rust_type_for_field(&f.field_type, true, Some(package_name)),
+                default_value: f
+                    .default_value
+                    .as_ref()
+                    .map(constant_value_to_rust)
+                    .unwrap_or_default(),
+            })
+            .collect()
+    };
+
+    let message_to_idiomatic_fields = |msg: &Message| {
+        msg.fields
+            .iter()
+            .map(|f| IdiomaticField {
+                name: escape_keyword(&f.name),
+                rust_type: rust_type_for_field(&f.field_type, false, Some(package_name)),
+                default_value: f
+                    .default_value
+                    .as_ref()
+                    .map(constant_value_to_rust)
+                    .unwrap_or_default(),
+                kind: determine_field_kind(&f.field_type),
+            })
+            .collect()
+    };
+
+    let message_to_constants = |msg: &Message, _rmw_layer: bool| {
+        msg.constants
+            .iter()
+            .map(|c| MessageConstant {
+                name: c.name.clone(),
+                rust_type: rust_type_for_constant(&c.constant_type),
+                value: constant_value_to_rust(&c.value),
+            })
+            .collect()
+    };
+
+    // Generate RMW layer action
+    let action_rmw_template = ActionRmwTemplate {
+        package_name,
+        action_name,
+        goal_fields: message_to_rmw_fields(&action.spec.goal),
+        goal_constants: message_to_constants(&action.spec.goal, true),
+        result_fields: message_to_rmw_fields(&action.spec.result),
+        result_constants: message_to_constants(&action.spec.result, true),
+        feedback_fields: message_to_rmw_fields(&action.spec.feedback),
+        feedback_constants: message_to_constants(&action.spec.feedback, true),
+    };
+    let action_rmw = action_rmw_template.render()?;
+
+    // Generate idiomatic layer action
+    let action_idiomatic_template = ActionIdiomaticTemplate {
+        package_name,
+        action_name,
+        goal_fields: message_to_idiomatic_fields(&action.spec.goal),
+        goal_constants: message_to_constants(&action.spec.goal, false),
+        result_fields: message_to_idiomatic_fields(&action.spec.result),
+        result_constants: message_to_constants(&action.spec.result, false),
+        feedback_fields: message_to_idiomatic_fields(&action.spec.feedback),
+        feedback_constants: message_to_constants(&action.spec.feedback, false),
+    };
+    let action_idiomatic = action_idiomatic_template.render()?;
+
+    Ok(GeneratedActionPackage {
+        cargo_toml,
+        build_rs,
+        lib_rs,
+        action_rmw,
+        action_idiomatic,
+    })
+}
+
+/// Generated nros action package
+pub struct GeneratedNrosActionPackage {
+    pub cargo_toml: String,
+    pub lib_rs: String,
+    pub action_rs: String,
+}
+
+/// Generate a nros action package
+pub fn generate_nros_action_package(
+    package_name: &str,
+    action_name: &str,
+    action: &Action,
+    all_dependencies: &HashSet<String>,
+    package_version: &str,
+    edition: RosEdition,
+) -> Result<GeneratedNrosActionPackage, GeneratorError> {
+    // Extract dependencies from goal, result, and feedback
+    let mut goal_deps = extract_dependencies(&action.spec.goal);
+    let result_deps = extract_dependencies(&action.spec.result);
+    let feedback_deps = extract_dependencies(&action.spec.feedback);
+    goal_deps.extend(result_deps);
+    goal_deps.extend(feedback_deps);
+
+    // Combine with externally provided dependencies
+    let mut all_deps: Vec<String> = all_dependencies.iter().cloned().collect();
+    all_deps.extend(goal_deps);
+    all_deps.sort();
+    all_deps.dedup();
+
+    // Generate Cargo.toml
+    let cargo_toml_template = CargoNrosTomlTemplate {
+        package_name,
+        package_version,
+        dependencies: &all_deps,
+    };
+    let cargo_toml = cargo_toml_template.render()?;
+
+    // Generate lib.rs
+    let lib_rs_template = LibNrosRsTemplate {
+        has_messages: false,
+        has_services: false,
+        has_actions: true,
+    };
+    let lib_rs = lib_rs_template.render()?;
+
+    // Generate goal fields
+    let goal_fields: Vec<NrosField> = action
+        .spec
+        .goal
+        .fields
+        .iter()
+        .map(|f| field_to_nros_field(f, package_name))
+        .collect();
+
+    let goal_constants: Vec<MessageConstant> = action
+        .spec
+        .goal
+        .constants
+        .iter()
+        .map(|c| MessageConstant {
+            name: c.name.clone(),
+            rust_type: nros_type_for_constant(&c.constant_type),
+            value: constant_value_to_rust(&c.value),
+        })
+        .collect();
+
+    // Generate result fields
+    let result_fields: Vec<NrosField> = action
+        .spec
+        .result
+        .fields
+        .iter()
+        .map(|f| field_to_nros_field(f, package_name))
+        .collect();
+
+    let result_constants: Vec<MessageConstant> = action
+        .spec
+        .result
+        .constants
+        .iter()
+        .map(|c| MessageConstant {
+            name: c.name.clone(),
+            rust_type: nros_type_for_constant(&c.constant_type),
+            value: constant_value_to_rust(&c.value),
+        })
+        .collect();
+
+    // Generate feedback fields
+    let feedback_fields: Vec<NrosField> = action
+        .spec
+        .feedback
+        .fields
+        .iter()
+        .map(|f| field_to_nros_field(f, package_name))
+        .collect();
+
+    let feedback_constants: Vec<MessageConstant> = action
+        .spec
+        .feedback
+        .constants
+        .iter()
+        .map(|c| MessageConstant {
+            name: c.name.clone(),
+            rust_type: nros_type_for_constant(&c.constant_type),
+            value: constant_value_to_rust(&c.value),
+        })
+        .collect();
+
+    let type_hash = edition.type_hash();
+
+    let has_goal_fields = !goal_fields.is_empty();
+    let has_result_fields = !result_fields.is_empty();
+    let has_feedback_fields = !feedback_fields.is_empty();
+
+    let action_template = ActionNrosTemplate {
+        package_name,
+        action_name,
+        type_hash,
+        goal_fields,
+        goal_constants,
+        result_fields,
+        result_constants,
+        feedback_fields,
+        feedback_constants,
+        has_goal_fields,
+        has_result_fields,
+        has_feedback_fields,
+        inline_mode: false,
+    };
+    let action_rs = action_template.render()?;
+
+    Ok(GeneratedNrosActionPackage {
+        cargo_toml,
+        lib_rs,
+        action_rs,
+    })
+}
+
+/// Generate a single action's Rust code in inline mode.
+pub fn generate_nros_inline_action(
+    package_name: &str,
+    action_name: &str,
+    action: &Action,
+    edition: RosEdition,
+) -> Result<String, GeneratorError> {
+    let mode = NrosCodegenMode::Inline;
+
+    let goal_fields: Vec<NrosField> = action
+        .spec
+        .goal
+        .fields
+        .iter()
+        .map(|f| field_to_nros_field_with_mode(f, package_name, mode))
+        .collect();
+
+    let goal_constants: Vec<MessageConstant> = action
+        .spec
+        .goal
+        .constants
+        .iter()
+        .map(|c| MessageConstant {
+            name: c.name.clone(),
+            rust_type: nros_type_for_constant(&c.constant_type),
+            value: constant_value_to_rust(&c.value),
+        })
+        .collect();
+
+    let result_fields: Vec<NrosField> = action
+        .spec
+        .result
+        .fields
+        .iter()
+        .map(|f| field_to_nros_field_with_mode(f, package_name, mode))
+        .collect();
+
+    let result_constants: Vec<MessageConstant> = action
+        .spec
+        .result
+        .constants
+        .iter()
+        .map(|c| MessageConstant {
+            name: c.name.clone(),
+            rust_type: nros_type_for_constant(&c.constant_type),
+            value: constant_value_to_rust(&c.value),
+        })
+        .collect();
+
+    let feedback_fields: Vec<NrosField> = action
+        .spec
+        .feedback
+        .fields
+        .iter()
+        .map(|f| field_to_nros_field_with_mode(f, package_name, mode))
+        .collect();
+
+    let feedback_constants: Vec<MessageConstant> = action
+        .spec
+        .feedback
+        .constants
+        .iter()
+        .map(|c| MessageConstant {
+            name: c.name.clone(),
+            rust_type: nros_type_for_constant(&c.constant_type),
+            value: constant_value_to_rust(&c.value),
+        })
+        .collect();
+
+    let type_hash = edition.type_hash();
+    let has_goal_fields = !goal_fields.is_empty();
+    let has_result_fields = !result_fields.is_empty();
+    let has_feedback_fields = !feedback_fields.is_empty();
+
+    let template = ActionNrosTemplate {
+        package_name,
+        action_name,
+        type_hash,
+        goal_fields,
+        goal_constants,
+        result_fields,
+        result_constants,
+        feedback_fields,
+        feedback_constants,
+        has_goal_fields,
+        has_result_fields,
+        has_feedback_fields,
+        inline_mode: true,
+    };
+
+    Ok(template.render()?)
+}
+
+/// Generated C action package
+pub struct GeneratedCActionPackage {
+    /// Header file content (.h)
+    pub header: String,
+    /// Source file content (.c)
+    pub source: String,
+    /// Header filename
+    pub header_name: String,
+    /// Source filename
+    pub source_name: String,
+}
+
+/// Generate C code for an action type
+pub fn generate_c_action_package(
+    package_name: &str,
+    action_name: &str,
+    action: &Action,
+    type_hash: &str,
+) -> Result<GeneratedCActionPackage, GeneratorError> {
+    let c_pkg_name = to_c_package_name(package_name);
+    let action_snake = to_snake_case(action_name);
+
+    // Build struct and guard names
+    let action_struct_name = format!("{}_action_{}", c_pkg_name, action_snake);
+    let goal_struct_name = format!("{}_action_{}_goal", c_pkg_name, action_snake);
+    let result_struct_name = format!("{}_action_{}_result", c_pkg_name, action_snake);
+    let feedback_struct_name = format!("{}_action_{}_feedback", c_pkg_name, action_snake);
+    let guard_name = format!(
+        "{}_ACTION_{}_H",
+        c_pkg_name.to_uppercase(),
+        action_snake.to_uppercase()
+    );
+    let constant_prefix = format!(
+        "{}_ACTION_{}",
+        c_pkg_name.to_uppercase(),
+        action_snake.to_uppercase()
+    );
+    let header_name = format!("{}_action_{}.h", c_pkg_name, action_snake);
+    let source_name = format!("{}_action_{}.c", c_pkg_name, action_snake);
+
+    // Extract dependencies from goal, result, and feedback
+    let mut dependencies = Vec::new();
+    for field in action
+        .spec
+        .goal
+        .fields
+        .iter()
+        .chain(action.spec.result.fields.iter())
+        .chain(action.spec.feedback.fields.iter())
+    {
+        if let FieldType::NamespacedType {
+            package: Some(pkg), ..
+        } = &field.field_type
+        {
+            let dep = to_c_package_name(pkg);
+            if !dependencies.contains(&dep) {
+                dependencies.push(dep);
+            }
+        }
+    }
+    dependencies.sort();
+
+    // Build C fields for goal
+    let goal_fields: Vec<CField> = action
+        .spec
+        .goal
+        .fields
+        .iter()
+        .map(|field| build_c_field(&field.name, &field.field_type, Some(package_name)))
+        .collect();
+
+    let goal_constants: Vec<CConstant> = action
+        .spec
+        .goal
+        .constants
+        .iter()
+        .map(|constant| CConstant {
+            name: constant.name.clone(),
+            c_type: c_type_for_constant(&constant.constant_type),
+            value: constant_value_to_rust(&constant.value),
+        })
+        .collect();
+
+    // Build C fields for result
+    let result_fields: Vec<CField> = action
+        .spec
+        .result
+        .fields
+        .iter()
+        .map(|field| build_c_field(&field.name, &field.field_type, Some(package_name)))
+        .collect();
+
+    let result_constants: Vec<CConstant> = action
+        .spec
+        .result
+        .constants
+        .iter()
+        .map(|constant| CConstant {
+            name: constant.name.clone(),
+            c_type: c_type_for_constant(&constant.constant_type),
+            value: constant_value_to_rust(&constant.value),
+        })
+        .collect();
+
+    // Build C fields for feedback
+    let feedback_fields: Vec<CField> = action
+        .spec
+        .feedback
+        .fields
+        .iter()
+        .map(|field| build_c_field(&field.name, &field.field_type, Some(package_name)))
+        .collect();
+
+    let feedback_constants: Vec<CConstant> = action
+        .spec
+        .feedback
+        .constants
+        .iter()
+        .map(|constant| CConstant {
+            name: constant.name.clone(),
+            c_type: c_type_for_constant(&constant.constant_type),
+            value: constant_value_to_rust(&constant.value),
+        })
+        .collect();
+
+    let has_goal_fields = !goal_fields.is_empty();
+    let has_result_fields = !result_fields.is_empty();
+    let has_feedback_fields = !feedback_fields.is_empty();
+
+    // Generate header
+    let header_template = ActionCHeaderTemplate {
+        package_name,
+        action_name,
+        type_hash,
+        guard_name,
+        action_struct_name: action_struct_name.clone(),
+        goal_struct_name: goal_struct_name.clone(),
+        result_struct_name: result_struct_name.clone(),
+        feedback_struct_name: feedback_struct_name.clone(),
+        constant_prefix,
+        goal_fields: goal_fields.clone(),
+        goal_constants,
+        result_fields: result_fields.clone(),
+        result_constants,
+        feedback_fields: feedback_fields.clone(),
+        feedback_constants,
+        dependencies,
+        has_goal_fields,
+        has_result_fields,
+        has_feedback_fields,
+    };
+    let header = header_template.render()?;
+
+    // Generate source
+    let source_template = ActionCSourceTemplate {
+        package_name,
+        action_name,
+        type_hash,
+        header_name: header_name.clone(),
+        action_struct_name,
+        goal_struct_name,
+        result_struct_name,
+        feedback_struct_name,
+        goal_fields,
+        result_fields,
+        feedback_fields,
+        has_goal_fields,
+        has_result_fields,
+        has_feedback_fields,
+    };
+    let source = source_template.render()?;
+
+    Ok(GeneratedCActionPackage {
+        header,
+        source,
+        header_name,
+        source_name,
+    })
+}

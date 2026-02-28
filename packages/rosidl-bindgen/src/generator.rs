@@ -268,7 +268,8 @@ fn generate_lib_rs(src_dir: &Path, package: &Package) -> Result<()> {
     content.push_str("//! Generated nros bindings\n");
     content.push_str("//!\n");
     content.push_str("//! This crate is `no_std` compatible.\n\n");
-    content.push_str("#![no_std]\n\n");
+    content.push_str("#![no_std]\n");
+    content.push_str("#![allow(dead_code)]\n\n");
 
     if !package.interfaces.messages.is_empty() {
         content.push_str("pub mod msg;\n");

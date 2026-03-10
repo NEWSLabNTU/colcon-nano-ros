@@ -22,5 +22,7 @@ install(PROGRAMS "$<TARGET_FILE:nros-codegen>"
 # ---- CMake codegen module ----
 install(FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NanoRosGenerateInterfaces.cmake"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cpp_ffi_Cargo.toml.in"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cpp_ffi_lib.rs.in"
     DESTINATION lib/cmake/NanoRos
 )

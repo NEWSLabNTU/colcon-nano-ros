@@ -53,6 +53,7 @@ Prerequisites:
 #]=======================================================================]
 
 get_filename_component(_NANO_ROS_PREFIX "${CMAKE_CURRENT_LIST_DIR}/../../.." ABSOLUTE)
+set(_NANO_ROS_CMAKE_DIR "${CMAKE_CURRENT_LIST_DIR}")
 
 # =========================================================================
 # Locate the nros-codegen tool
@@ -275,7 +276,7 @@ function(nano_ros_generate_interfaces target)
 
   # ---- Library target ----
   if(_ARG_LANGUAGE STREQUAL "CPP")
-    # C++ target is header-only (INTERFACE)
+    # C++ target: header-only INTERFACE + Rust FFI staticlib for message bindings
     set(_lib_target "${target}__nano_ros_cpp")
     add_library(${_lib_target} INTERFACE)
     target_include_directories(${_lib_target}
@@ -285,8 +286,64 @@ function(nano_ros_generate_interfaces target)
         $<INSTALL_INTERFACE:include/${target}>
     )
 
-    # Link to nros-cpp-ffi
-    if(TARGET nros_cpp_ffi::nros_cpp_ffi)
+    # Custom target to drive codegen (INTERFACE libraries don't trigger custom commands)
+    add_custom_target(${_lib_target}_gen DEPENDS ${_generated_headers} ${_generated_rs_files})
+    add_dependencies(${_lib_target} ${_lib_target}_gen)
+
+    # ---- Build Rust FFI glue for generated message types ----
+    # The generated .rs files provide extern "C" publish/serialize/deserialize
+    # functions. We compile them into a static library via cargo.
+    if(_generated_rs_files)
+      set(_ffi_crate_dir "${CMAKE_CURRENT_BINARY_DIR}/nano_ros_cpp_ffi_${target}")
+      set(_ffi_crate_src "${_ffi_crate_dir}/src")
+      set(_ffi_target_dir "${_ffi_crate_dir}/target")
+      set(_serdes_dir "${_NANO_ROS_PREFIX}/share/nano-ros/rust/nros-serdes")
+      set(_ffi_lib "${_ffi_target_dir}/release/libnano_ros_cpp_ffi_${target}.a")
+
+      file(MAKE_DIRECTORY "${_ffi_crate_src}")
+
+      # Generate Cargo.toml and lib.rs from templates
+      set(FFI_TARGET "${target}")
+      set(SERDES_DIR "${_serdes_dir}")
+      set(GENERATED_MOD_RS "${_output_dir}/mod.rs")
+      configure_file(
+        "${_NANO_ROS_CMAKE_DIR}/cpp_ffi_Cargo.toml.in"
+        "${_ffi_crate_dir}/Cargo.toml"
+        @ONLY
+      )
+      configure_file(
+        "${_NANO_ROS_CMAKE_DIR}/cpp_ffi_lib.rs.in"
+        "${_ffi_crate_src}/lib.rs"
+        @ONLY
+      )
+
+      # Build the FFI staticlib after codegen runs
+      add_custom_command(
+        OUTPUT "${_ffi_lib}"
+        COMMAND cargo build --release --manifest-path "${_ffi_crate_dir}/Cargo.toml"
+                --target-dir "${_ffi_target_dir}"
+        DEPENDS ${_generated_rs_files} "${_ffi_crate_dir}/Cargo.toml" "${_ffi_crate_src}/lib.rs"
+        WORKING_DIRECTORY "${_ffi_crate_dir}"
+        COMMENT "Building Rust FFI glue for ${target} C++ bindings"
+        VERBATIM
+      )
+
+      add_custom_target(${_lib_target}_ffi DEPENDS "${_ffi_lib}")
+      add_dependencies(${_lib_target}_ffi ${_lib_target}_gen)
+      add_dependencies(${_lib_target} ${_lib_target}_ffi)
+
+      # Import the built staticlib
+      add_library(${_lib_target}_ffi_lib STATIC IMPORTED)
+      set_target_properties(${_lib_target}_ffi_lib PROPERTIES
+        IMPORTED_LOCATION "${_ffi_lib}"
+      )
+      target_link_libraries(${_lib_target} INTERFACE ${_lib_target}_ffi_lib)
+    endif()
+
+    # Link to nros C++ library (prefer installed target, fall back to build-time Corrosion target)
+    if(TARGET NanoRos::NanoRosCpp)
+      target_link_libraries(${_lib_target} INTERFACE NanoRos::NanoRosCpp)
+    elseif(TARGET nros_cpp_ffi::nros_cpp_ffi)
       target_link_libraries(${_lib_target} INTERFACE nros_cpp_ffi::nros_cpp_ffi)
     endif()
 

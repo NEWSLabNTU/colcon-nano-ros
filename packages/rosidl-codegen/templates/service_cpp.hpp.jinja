@@ -19,8 +19,10 @@
 // FFI declarations
 extern "C" {
 int {{ request_ffi_publish_fn }}(void* handle, const void* msg);
+int {{ request_ffi_serialize_fn }}(const void* msg, uint8_t* buf, size_t buf_len, size_t* out_len);
 int {{ request_ffi_deserialize_fn }}(const uint8_t* data, size_t len, void* out);
 int {{ response_ffi_publish_fn }}(void* handle, const void* msg);
+int {{ response_ffi_serialize_fn }}(const void* msg, uint8_t* buf, size_t buf_len, size_t* out_len);
 int {{ response_ffi_deserialize_fn }}(const uint8_t* data, size_t len, void* out);
 } // extern "C"
 
@@ -44,6 +46,9 @@ struct {{ service_name }} {
         static int ffi_publish(void* handle, const void* msg) {
             return {{ request_ffi_publish_fn }}(handle, msg);
         }
+        static int ffi_serialize(const void* msg, uint8_t* buf, size_t buf_len, size_t* out_len) {
+            return {{ request_ffi_serialize_fn }}(msg, buf, buf_len, out_len);
+        }
         static int ffi_deserialize(const uint8_t* data, size_t len, void* out) {
             return {{ request_ffi_deserialize_fn }}(data, len, out);
         }
@@ -64,6 +69,9 @@ struct {{ service_name }} {
 
         static int ffi_publish(void* handle, const void* msg) {
             return {{ response_ffi_publish_fn }}(handle, msg);
+        }
+        static int ffi_serialize(const void* msg, uint8_t* buf, size_t buf_len, size_t* out_len) {
+            return {{ response_ffi_serialize_fn }}(msg, buf, buf_len, out_len);
         }
         static int ffi_deserialize(const uint8_t* data, size_t len, void* out) {
             return {{ response_ffi_deserialize_fn }}(data, len, out);

@@ -19,10 +19,13 @@
 // FFI declarations
 extern "C" {
 int {{ goal_ffi_publish_fn }}(void* handle, const void* msg);
+int {{ goal_ffi_serialize_fn }}(const void* msg, uint8_t* buf, size_t buf_len, size_t* out_len);
 int {{ goal_ffi_deserialize_fn }}(const uint8_t* data, size_t len, void* out);
 int {{ result_ffi_publish_fn }}(void* handle, const void* msg);
+int {{ result_ffi_serialize_fn }}(const void* msg, uint8_t* buf, size_t buf_len, size_t* out_len);
 int {{ result_ffi_deserialize_fn }}(const uint8_t* data, size_t len, void* out);
 int {{ feedback_ffi_publish_fn }}(void* handle, const void* msg);
+int {{ feedback_ffi_serialize_fn }}(const void* msg, uint8_t* buf, size_t buf_len, size_t* out_len);
 int {{ feedback_ffi_deserialize_fn }}(const uint8_t* data, size_t len, void* out);
 } // extern "C"
 
@@ -46,6 +49,9 @@ struct {{ action_name }} {
         static int ffi_publish(void* handle, const void* msg) {
             return {{ goal_ffi_publish_fn }}(handle, msg);
         }
+        static int ffi_serialize(const void* msg, uint8_t* buf, size_t buf_len, size_t* out_len) {
+            return {{ goal_ffi_serialize_fn }}(msg, buf, buf_len, out_len);
+        }
         static int ffi_deserialize(const uint8_t* data, size_t len, void* out) {
             return {{ goal_ffi_deserialize_fn }}(data, len, out);
         }
@@ -67,6 +73,9 @@ struct {{ action_name }} {
         static int ffi_publish(void* handle, const void* msg) {
             return {{ result_ffi_publish_fn }}(handle, msg);
         }
+        static int ffi_serialize(const void* msg, uint8_t* buf, size_t buf_len, size_t* out_len) {
+            return {{ result_ffi_serialize_fn }}(msg, buf, buf_len, out_len);
+        }
         static int ffi_deserialize(const uint8_t* data, size_t len, void* out) {
             return {{ result_ffi_deserialize_fn }}(data, len, out);
         }
@@ -87,6 +96,9 @@ struct {{ action_name }} {
 
         static int ffi_publish(void* handle, const void* msg) {
             return {{ feedback_ffi_publish_fn }}(handle, msg);
+        }
+        static int ffi_serialize(const void* msg, uint8_t* buf, size_t buf_len, size_t* out_len) {
+            return {{ feedback_ffi_serialize_fn }}(msg, buf, buf_len, out_len);
         }
         static int ffi_deserialize(const uint8_t* data, size_t len, void* out) {
             return {{ feedback_ffi_deserialize_fn }}(data, len, out);

@@ -19,6 +19,7 @@
 // FFI declarations
 extern "C" {
 int {{ ffi_publish_fn }}(void* handle, const void* msg);
+int {{ ffi_serialize_fn }}(const void* msg, uint8_t* buf, size_t buf_len, size_t* out_len);
 int {{ ffi_deserialize_fn }}(const uint8_t* data, size_t len, void* out);
 } // extern "C"
 
@@ -41,6 +42,11 @@ struct {{ message_name }} {
     /// Publish via FFI (called by Publisher<M>::publish)
     static int ffi_publish(void* handle, const void* msg) {
         return {{ ffi_publish_fn }}(handle, msg);
+    }
+
+    /// Serialize to CDR buffer (called by Service/Client/Action)
+    static int ffi_serialize(const void* msg, uint8_t* buf, size_t buf_len, size_t* out_len) {
+        return {{ ffi_serialize_fn }}(msg, buf, buf_len, out_len);
     }
 
     /// Deserialize from CDR (called by Subscription<M>::try_recv)

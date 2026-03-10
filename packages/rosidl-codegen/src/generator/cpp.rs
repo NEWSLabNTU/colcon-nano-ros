@@ -118,6 +118,7 @@ fn render_ffi_rs(
     message_name: &str,
     struct_name: &str,
     ffi_publish_fn: &str,
+    ffi_serialize_fn: &str,
     ffi_deserialize_fn: &str,
     serialize_fn: &str,
     deserialize_fn: &str,
@@ -132,6 +133,7 @@ fn render_ffi_rs(
         message_name,
         repr_c_struct_name: struct_name.to_string(),
         ffi_publish_fn: ffi_publish_fn.to_string(),
+        ffi_serialize_fn: ffi_serialize_fn.to_string(),
         ffi_deserialize_fn: ffi_deserialize_fn.to_string(),
         serialize_fn: serialize_fn.to_string(),
         deserialize_fn: deserialize_fn.to_string(),
@@ -160,6 +162,7 @@ pub fn generate_cpp_message_package(
         msg_snake.to_uppercase()
     );
     let ffi_publish_fn = format!("nros_cpp_publish_{}_msg_{}", c_pkg_name, msg_snake);
+    let ffi_serialize_fn = format!("nros_cpp_serialize_{}_msg_{}", c_pkg_name, msg_snake);
     let ffi_deserialize_fn = format!("nros_cpp_deserialize_{}_msg_{}", c_pkg_name, msg_snake);
     let serialize_fn = format!("serialize_{}_msg_{}_fields", c_pkg_name, msg_snake);
     let deserialize_fn = format!("deserialize_{}_msg_{}_fields", c_pkg_name, msg_snake);
@@ -182,6 +185,7 @@ pub fn generate_cpp_message_package(
         guard_name,
         cpp_package: c_pkg_name.clone(),
         ffi_publish_fn: ffi_publish_fn.clone(),
+        ffi_serialize_fn: ffi_serialize_fn.clone(),
         ffi_deserialize_fn: ffi_deserialize_fn.clone(),
         fields: cpp_fields,
         constants,
@@ -197,6 +201,7 @@ pub fn generate_cpp_message_package(
         message_name,
         &struct_name,
         &ffi_publish_fn,
+        &ffi_serialize_fn,
         &ffi_deserialize_fn,
         &serialize_fn,
         &deserialize_fn,
@@ -232,6 +237,10 @@ pub fn generate_cpp_service_package(
     // Request
     let req_struct = format!("{}_srv_{}_request_t", c_pkg_name, srv_snake);
     let req_publish_fn = format!("nros_cpp_publish_{}_srv_{}_request", c_pkg_name, srv_snake);
+    let req_serialize_fn = format!(
+        "nros_cpp_serialize_{}_srv_{}_request",
+        c_pkg_name, srv_snake
+    );
     let req_deser_fn = format!(
         "nros_cpp_deserialize_{}_srv_{}_request",
         c_pkg_name, srv_snake
@@ -250,6 +259,10 @@ pub fn generate_cpp_service_package(
     // Response
     let resp_struct = format!("{}_srv_{}_response_t", c_pkg_name, srv_snake);
     let resp_publish_fn = format!("nros_cpp_publish_{}_srv_{}_response", c_pkg_name, srv_snake);
+    let resp_serialize_fn = format!(
+        "nros_cpp_serialize_{}_srv_{}_response",
+        c_pkg_name, srv_snake
+    );
     let resp_deser_fn = format!(
         "nros_cpp_deserialize_{}_srv_{}_response",
         c_pkg_name, srv_snake
@@ -284,8 +297,10 @@ pub fn generate_cpp_service_package(
         guard_name,
         cpp_package: c_pkg_name.clone(),
         request_ffi_publish_fn: req_publish_fn.clone(),
+        request_ffi_serialize_fn: req_serialize_fn.clone(),
         request_ffi_deserialize_fn: req_deser_fn.clone(),
         response_ffi_publish_fn: resp_publish_fn.clone(),
+        response_ffi_serialize_fn: resp_serialize_fn.clone(),
         response_ffi_deserialize_fn: resp_deser_fn.clone(),
         request_fields: req_cpp_fields,
         request_constants: req_constants,
@@ -305,6 +320,7 @@ pub fn generate_cpp_service_package(
         &format!("{}Request", service_name),
         &req_struct,
         &req_publish_fn,
+        &req_serialize_fn,
         &req_deser_fn,
         &req_ser_fn,
         &req_deser_fn_inner,
@@ -317,6 +333,7 @@ pub fn generate_cpp_service_package(
         &format!("{}Response", service_name),
         &resp_struct,
         &resp_publish_fn,
+        &resp_serialize_fn,
         &resp_deser_fn,
         &resp_ser_fn,
         &resp_deser_fn_inner,
@@ -354,6 +371,7 @@ pub fn generate_cpp_action_package(
     // Helper struct for action sub-message parts
     struct ActionPart {
         publish_fn: String,
+        serialize_fn: String,
         deser_fn: String,
         ser_fn: String,
         deser_fn_inner: String,
@@ -373,6 +391,10 @@ pub fn generate_cpp_action_package(
         ActionPart {
             publish_fn: format!(
                 "nros_cpp_publish_{}_action_{}_{}",
+                c_pkg_name, act_snake, part_name
+            ),
+            serialize_fn: format!(
+                "nros_cpp_serialize_{}_action_{}_{}",
                 c_pkg_name, act_snake, part_name
             ),
             deser_fn: format!(
@@ -424,10 +446,13 @@ pub fn generate_cpp_action_package(
         guard_name,
         cpp_package: c_pkg_name.clone(),
         goal_ffi_publish_fn: goal.publish_fn.clone(),
+        goal_ffi_serialize_fn: goal.serialize_fn.clone(),
         goal_ffi_deserialize_fn: goal.deser_fn.clone(),
         result_ffi_publish_fn: result.publish_fn.clone(),
+        result_ffi_serialize_fn: result.serialize_fn.clone(),
         result_ffi_deserialize_fn: result.deser_fn.clone(),
         feedback_ffi_publish_fn: feedback.publish_fn.clone(),
+        feedback_ffi_serialize_fn: feedback.serialize_fn.clone(),
         feedback_ffi_deserialize_fn: feedback.deser_fn.clone(),
         goal_fields: goal.cpp_fields,
         goal_constants: goal.constants,
@@ -451,6 +476,7 @@ pub fn generate_cpp_action_package(
         &format!("{}Goal", action_name),
         &goal.struct_name,
         &goal.publish_fn,
+        &goal.serialize_fn,
         &goal.deser_fn,
         &goal.ser_fn,
         &goal.deser_fn_inner,
@@ -463,6 +489,7 @@ pub fn generate_cpp_action_package(
         &format!("{}Result", action_name),
         &result.struct_name,
         &result.publish_fn,
+        &result.serialize_fn,
         &result.deser_fn,
         &result.ser_fn,
         &result.deser_fn_inner,
@@ -475,6 +502,7 @@ pub fn generate_cpp_action_package(
         &format!("{}Feedback", action_name),
         &feedback.struct_name,
         &feedback.publish_fn,
+        &feedback.serialize_fn,
         &feedback.deser_fn,
         &feedback.ser_fn,
         &feedback.deser_fn_inner,

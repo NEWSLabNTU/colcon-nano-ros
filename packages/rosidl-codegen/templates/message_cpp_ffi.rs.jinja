@@ -124,6 +124,42 @@ pub fn {{ deserialize_fn }}(reader: &mut CdrReader, out: &mut {{ repr_c_struct_n
 }
 {%- endif %}
 
+/// Serialize a {{ message_name }} message to a CDR buffer
+///
+/// # Safety
+/// `msg_ptr` must point to a valid {{ repr_c_struct_name }}.
+/// `buf` must point to `buf_len` writable bytes. `out_len` must be valid.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn {{ ffi_serialize_fn }}(
+    msg_ptr: *const core::ffi::c_void,
+    buf: *mut u8,
+    buf_len: usize,
+    out_len: *mut usize,
+) -> i32 {
+{%- if has_fields %}
+    let msg = unsafe { &*(msg_ptr as *const {{ repr_c_struct_name }}) };
+    let buf_slice = unsafe { core::slice::from_raw_parts_mut(buf, buf_len) };
+    let mut writer = CdrWriter::new_with_header(buf_slice);
+    if {{ serialize_fn }}(msg, &mut writer).is_err() {
+        return -1;
+    }
+    unsafe { *out_len = writer.position(); }
+    0
+{%- else %}
+    // Empty message — serialize CDR header only
+    if buf_len < 4 {
+        return -1;
+    }
+    let buf_slice = unsafe { core::slice::from_raw_parts_mut(buf, buf_len) };
+    buf_slice[0] = 0;
+    buf_slice[1] = 1;
+    buf_slice[2] = 0;
+    buf_slice[3] = 0;
+    unsafe { *out_len = 4; }
+    0
+{%- endif %}
+}
+
 /// Publish a {{ message_name }} message via FFI
 ///
 /// # Safety

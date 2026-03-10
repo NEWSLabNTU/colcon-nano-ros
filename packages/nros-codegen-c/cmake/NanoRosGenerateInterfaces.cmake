@@ -2,7 +2,7 @@
 NanoRosGenerateInterfaces
 -------------------------
 
-Generate C bindings for ROS 2 interface files (.msg, .srv, .action).
+Generate C or C++ bindings for ROS 2 interface files (.msg, .srv, .action).
 
 This module is included by ``NanoRosConfig.cmake`` and provides the
 ``nano_ros_generate_interfaces()`` function.  It also locates the
@@ -18,6 +18,7 @@ bundled interfaces shipped with nano-ros.
 
   nano_ros_generate_interfaces(<target>
     <interface_files>...
+    [LANGUAGE C|CPP]
     [DEPENDENCIES <packages>...]
     [SKIP_INSTALL]
   )
@@ -25,7 +26,8 @@ bundled interfaces shipped with nano-ros.
 Arguments:
   ``<target>``
     Package name for the generated bindings.  Creates a
-    ``<target>__nano_ros_c`` static library target.
+    ``<target>__nano_ros_c`` (C) or ``<target>__nano_ros_cpp`` (C++)
+    library target.
   ``<interface_files>``
     Relative paths to .msg, .srv, or .action files
     (e.g., ``msg/Int32.msg``, ``srv/AddTwoInts.srv``).
@@ -35,6 +37,10 @@ Arguments:
     2. ``${prefix}/share/<target>/<file>``      (ament index)
     3. ``${_NANO_ROS_PREFIX}/share/nano-ros/interfaces/<target>/<file>``
        (bundled)
+  ``LANGUAGE``
+    Target language: ``C`` (default) or ``CPP``.
+    C mode generates ``.h`` + ``.c`` files.
+    CPP mode generates ``.hpp`` headers + ``.rs`` Rust FFI glue.
   ``DEPENDENCIES``
     List of interface packages this package depends on.
   ``SKIP_INSTALL``
@@ -113,7 +119,7 @@ endfunction()
 function(nano_ros_generate_interfaces target)
   cmake_parse_arguments(_ARG
     "SKIP_INSTALL"
-    "ROS_EDITION"
+    "ROS_EDITION;LANGUAGE"
     "DEPENDENCIES"
     ${ARGN}
   )
@@ -121,6 +127,11 @@ function(nano_ros_generate_interfaces target)
   if(NOT DEFINED _ARG_ROS_EDITION OR _ARG_ROS_EDITION STREQUAL "")
     set(_ARG_ROS_EDITION "humble")
   endif()
+
+  if(NOT DEFINED _ARG_LANGUAGE OR _ARG_LANGUAGE STREQUAL "")
+    set(_ARG_LANGUAGE "C")
+  endif()
+  string(TOUPPER "${_ARG_LANGUAGE}" _ARG_LANGUAGE)
 
   if(NOT _ARG_UNPARSED_ARGUMENTS)
     message(FATAL_ERROR
@@ -144,15 +155,23 @@ function(nano_ros_generate_interfaces target)
     list(APPEND _interface_files "${_abs_path}")
   endforeach()
 
-  # Output directory
-  set(_output_dir "${CMAKE_CURRENT_BINARY_DIR}/nano_ros_c/${target}")
+  # Output directory — language-specific subdirectory
+  if(_ARG_LANGUAGE STREQUAL "CPP")
+    set(_subdir "nano_ros_cpp")
+    set(_lang_flag "cpp")
+  else()
+    set(_subdir "nano_ros_c")
+    set(_lang_flag "c")
+  endif()
+
+  set(_output_dir "${CMAKE_CURRENT_BINARY_DIR}/${_subdir}/${target}")
   file(MAKE_DIRECTORY "${_output_dir}")
   file(MAKE_DIRECTORY "${_output_dir}/msg")
   file(MAKE_DIRECTORY "${_output_dir}/srv")
   file(MAKE_DIRECTORY "${_output_dir}/action")
 
   # ---- Build JSON arguments file ----
-  set(_args_file "${CMAKE_CURRENT_BINARY_DIR}/nano_ros_generate_c_args__${target}.json")
+  set(_args_file "${CMAKE_CURRENT_BINARY_DIR}/nano_ros_generate_${_lang_flag}_args__${target}.json")
 
   set(_files_json "")
   set(_first TRUE)
@@ -188,6 +207,7 @@ function(nano_ros_generate_interfaces target)
   # ---- Predict output files ----
   set(_generated_headers "")
   set(_generated_sources "")
+  set(_generated_rs_files "")
   foreach(_file ${_interface_files})
     get_filename_component(_name "${_file}" NAME_WE)
     get_filename_component(_ext  "${_file}" EXT)
@@ -209,85 +229,143 @@ function(nano_ros_generate_interfaces target)
       message(FATAL_ERROR "Unknown interface file extension: ${_ext}")
     endif()
 
-    list(APPEND _generated_headers
-      "${_output_dir}/${_kind}/${_c_pkg}_${_kind}_${_name_lower}.h")
-    list(APPEND _generated_sources
-      "${_output_dir}/${_kind}/${_c_pkg}_${_kind}_${_name_lower}.c")
+    if(_ARG_LANGUAGE STREQUAL "CPP")
+      # C++ generates .hpp headers + .rs FFI glue
+      list(APPEND _generated_headers
+        "${_output_dir}/${_kind}/${_c_pkg}_${_kind}_${_name_lower}.hpp")
+      if(_kind STREQUAL "msg")
+        list(APPEND _generated_rs_files
+          "${_output_dir}/${_kind}/${_c_pkg}_${_kind}_${_name_lower}_ffi.rs")
+      elseif(_kind STREQUAL "srv")
+        list(APPEND _generated_rs_files
+          "${_output_dir}/${_kind}/${_c_pkg}_${_kind}_${_name_lower}_request_ffi.rs"
+          "${_output_dir}/${_kind}/${_c_pkg}_${_kind}_${_name_lower}_response_ffi.rs")
+      elseif(_kind STREQUAL "action")
+        list(APPEND _generated_rs_files
+          "${_output_dir}/${_kind}/${_c_pkg}_${_kind}_${_name_lower}_goal_ffi.rs"
+          "${_output_dir}/${_kind}/${_c_pkg}_${_kind}_${_name_lower}_result_ffi.rs"
+          "${_output_dir}/${_kind}/${_c_pkg}_${_kind}_${_name_lower}_feedback_ffi.rs")
+      endif()
+    else()
+      # C generates .h headers + .c sources
+      list(APPEND _generated_headers
+        "${_output_dir}/${_kind}/${_c_pkg}_${_kind}_${_name_lower}.h")
+      list(APPEND _generated_sources
+        "${_output_dir}/${_kind}/${_c_pkg}_${_kind}_${_name_lower}.c")
+    endif()
   endforeach()
 
-  # Umbrella header
-  list(APPEND _generated_headers "${_output_dir}/${target}.h")
+  # Umbrella header + optional mod.rs
+  if(_ARG_LANGUAGE STREQUAL "CPP")
+    list(APPEND _generated_headers "${_output_dir}/${target}.hpp")
+    list(APPEND _generated_rs_files "${_output_dir}/mod.rs")
+  else()
+    list(APPEND _generated_headers "${_output_dir}/${target}.h")
+  endif()
 
   # ---- Custom command ----
   add_custom_command(
-    OUTPUT ${_generated_headers} ${_generated_sources}
-    COMMAND "${_NANO_ROS_CODEGEN_TOOL}" --args-file "${_args_file}"
+    OUTPUT ${_generated_headers} ${_generated_sources} ${_generated_rs_files}
+    COMMAND "${_NANO_ROS_CODEGEN_TOOL}" --language "${_lang_flag}" --args-file "${_args_file}"
     DEPENDS ${_interface_files} "${_args_file}"
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-    COMMENT "Generating nros C interfaces for ${target}"
+    COMMENT "Generating nros ${_ARG_LANGUAGE} interfaces for ${target}"
     VERBATIM
   )
 
   # ---- Library target ----
-  set(_lib_target "${target}__nano_ros_c")
-
-  if(_generated_sources)
-    add_library(${_lib_target} STATIC ${_generated_sources})
-    target_include_directories(${_lib_target}
-      PUBLIC
-        $<BUILD_INTERFACE:${_output_dir}>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/nano_ros_c>
-        $<INSTALL_INTERFACE:include/${target}>
-    )
-  else()
+  if(_ARG_LANGUAGE STREQUAL "CPP")
+    # C++ target is header-only (INTERFACE)
+    set(_lib_target "${target}__nano_ros_cpp")
     add_library(${_lib_target} INTERFACE)
     target_include_directories(${_lib_target}
       INTERFACE
         $<BUILD_INTERFACE:${_output_dir}>
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/nano_ros_c>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/${_subdir}>
         $<INSTALL_INTERFACE:include/${target}>
     )
-  endif()
 
-  # Link to nros-c
-  if(TARGET NanoRos::NanoRos)
-    set(_link_type PUBLIC)
-    if(NOT _generated_sources)
-      set(_link_type INTERFACE)
+    # Link to nros-cpp-ffi
+    if(TARGET nros_cpp_ffi::nros_cpp_ffi)
+      target_link_libraries(${_lib_target} INTERFACE nros_cpp_ffi::nros_cpp_ffi)
     endif()
-    target_link_libraries(${_lib_target} ${_link_type} NanoRos::NanoRos)
-  elseif(TARGET nros_c::nros_c)
-    set(_link_type PUBLIC)
-    if(NOT _generated_sources)
-      set(_link_type INTERFACE)
-    endif()
-    target_link_libraries(${_lib_target} ${_link_type} nros_c::nros_c)
-  endif()
 
-  # Link dependency libraries
-  foreach(_dep ${_ARG_DEPENDENCIES})
-    if(TARGET ${_dep}__nano_ros_c)
+    # Link dependency libraries
+    foreach(_dep ${_ARG_DEPENDENCIES})
+      if(TARGET ${_dep}__nano_ros_cpp)
+        target_link_libraries(${_lib_target} INTERFACE ${_dep}__nano_ros_cpp)
+      endif()
+    endforeach()
+  else()
+    # C target with .c sources
+    set(_lib_target "${target}__nano_ros_c")
+
+    if(_generated_sources)
+      add_library(${_lib_target} STATIC ${_generated_sources})
+      target_include_directories(${_lib_target}
+        PUBLIC
+          $<BUILD_INTERFACE:${_output_dir}>
+          $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/${_subdir}>
+          $<INSTALL_INTERFACE:include/${target}>
+      )
+    else()
+      add_library(${_lib_target} INTERFACE)
+      target_include_directories(${_lib_target}
+        INTERFACE
+          $<BUILD_INTERFACE:${_output_dir}>
+          $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/${_subdir}>
+          $<INSTALL_INTERFACE:include/${target}>
+      )
+    endif()
+
+    # Link to nros-c
+    if(TARGET NanoRos::NanoRos)
       set(_link_type PUBLIC)
       if(NOT _generated_sources)
         set(_link_type INTERFACE)
       endif()
-      target_link_libraries(${_lib_target} ${_link_type} ${_dep}__nano_ros_c)
+      target_link_libraries(${_lib_target} ${_link_type} NanoRos::NanoRos)
+    elseif(TARGET nros_c::nros_c)
+      set(_link_type PUBLIC)
+      if(NOT _generated_sources)
+        set(_link_type INTERFACE)
+      endif()
+      target_link_libraries(${_lib_target} ${_link_type} nros_c::nros_c)
     endif()
-  endforeach()
+
+    # Link dependency libraries
+    foreach(_dep ${_ARG_DEPENDENCIES})
+      if(TARGET ${_dep}__nano_ros_c)
+        set(_link_type PUBLIC)
+        if(NOT _generated_sources)
+          set(_link_type INTERFACE)
+        endif()
+        target_link_libraries(${_lib_target} ${_link_type} ${_dep}__nano_ros_c)
+      endif()
+    endforeach()
+  endif()
 
   # Install
   if(NOT _ARG_SKIP_INSTALL)
-    install(
-      DIRECTORY "${_output_dir}/"
-      DESTINATION "include/${target}"
-      FILES_MATCHING PATTERN "*.h"
-    )
-    if(_generated_sources)
-      install(TARGETS ${_lib_target}
-        EXPORT ${target}Targets
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib
+    if(_ARG_LANGUAGE STREQUAL "CPP")
+      install(
+        DIRECTORY "${_output_dir}/"
+        DESTINATION "include/${target}"
+        FILES_MATCHING PATTERN "*.hpp"
       )
+    else()
+      install(
+        DIRECTORY "${_output_dir}/"
+        DESTINATION "include/${target}"
+        FILES_MATCHING PATTERN "*.h"
+      )
+      if(_generated_sources)
+        install(TARGETS ${_lib_target}
+          EXPORT ${target}Targets
+          ARCHIVE DESTINATION lib
+          LIBRARY DESTINATION lib
+        )
+      endif()
     endif()
     install(EXPORT ${target}Targets
       FILE ${target}Targets.cmake
@@ -301,4 +379,5 @@ function(nano_ros_generate_interfaces target)
   set(${target}_LIBRARIES "${_lib_target}" PARENT_SCOPE)
   set(${target}_GENERATED_HEADERS "${_generated_headers}" PARENT_SCOPE)
   set(${target}_GENERATED_SOURCES "${_generated_sources}" PARENT_SCOPE)
+  set(${target}_GENERATED_RS_FILES "${_generated_rs_files}" PARENT_SCOPE)
 endfunction()

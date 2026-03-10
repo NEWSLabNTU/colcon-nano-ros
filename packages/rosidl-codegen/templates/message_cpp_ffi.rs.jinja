@@ -139,7 +139,10 @@ pub unsafe extern "C" fn {{ ffi_serialize_fn }}(
 {%- if has_fields %}
     let msg = unsafe { &*(msg_ptr as *const {{ repr_c_struct_name }}) };
     let buf_slice = unsafe { core::slice::from_raw_parts_mut(buf, buf_len) };
-    let mut writer = CdrWriter::new_with_header(buf_slice);
+    let mut writer = match CdrWriter::new_with_header(buf_slice) {
+        Ok(w) => w,
+        Err(_) => return -1,
+    };
     if {{ serialize_fn }}(msg, &mut writer).is_err() {
         return -1;
     }
@@ -172,11 +175,16 @@ pub unsafe extern "C" fn {{ ffi_publish_fn }}(
 {%- if has_fields %}
     let msg = unsafe { &*(msg_ptr as *const {{ repr_c_struct_name }}) };
     let mut buf = [0u8; {{ serialized_size_max }}];
-    let mut writer = CdrWriter::new_with_header(&mut buf);
+    let mut writer = match CdrWriter::new_with_header(&mut buf) {
+        Ok(w) => w,
+        Err(_) => return -1,
+    };
     if {{ serialize_fn }}(msg, &mut writer).is_err() {
         return -1;
     }
-    unsafe { nros_cpp_publish_raw(handle, buf.as_ptr(), writer.position()) }
+    let len = writer.position();
+    drop(writer);
+    unsafe { nros_cpp_publish_raw(handle, buf.as_ptr(), len) }
 {%- else %}
     // Empty message — publish CDR header only
     let buf = [0u8, 1u8, 0u8, 0u8]; // CDR LE header
@@ -196,7 +204,10 @@ pub unsafe extern "C" fn {{ ffi_deserialize_fn }}(
 ) -> i32 {
 {%- if has_fields %}
     let slice = unsafe { core::slice::from_raw_parts(data, len) };
-    let mut reader = CdrReader::new_with_header(slice);
+    let mut reader = match CdrReader::new_with_header(slice) {
+        Ok(r) => r,
+        Err(_) => return -1,
+    };
     let out = unsafe { &mut *(out_ptr as *mut {{ repr_c_struct_name }}) };
     if {{ deserialize_fn }}(&mut reader, out).is_err() {
         return -1;

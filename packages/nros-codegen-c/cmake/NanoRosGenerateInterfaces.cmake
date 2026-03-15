@@ -52,7 +52,11 @@ Prerequisites:
 
 #]=======================================================================]
 
-get_filename_component(_NANO_ROS_PREFIX "${CMAKE_CURRENT_LIST_DIR}/../../.." ABSOLUTE)
+# Allow callers to override _NANO_ROS_PREFIX (e.g. for in-tree cross-compilation
+# where the codegen cmake lives under packages/ but the prefix is the project root).
+if(NOT DEFINED _NANO_ROS_PREFIX)
+    get_filename_component(_NANO_ROS_PREFIX "${CMAKE_CURRENT_LIST_DIR}/../../.." ABSOLUTE)
+endif()
 set(_NANO_ROS_CMAKE_DIR "${CMAKE_CURRENT_LIST_DIR}")
 
 # =========================================================================

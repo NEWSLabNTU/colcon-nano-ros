@@ -356,8 +356,8 @@ function(nano_ros_generate_interfaces target)
     # Link to nros C++ library (prefer installed target, fall back to build-time Corrosion target)
     if(TARGET NanoRos::NanoRosCpp)
       target_link_libraries(${_lib_target} INTERFACE NanoRos::NanoRosCpp)
-    elseif(TARGET nros_cpp_ffi::nros_cpp_ffi)
-      target_link_libraries(${_lib_target} INTERFACE nros_cpp_ffi::nros_cpp_ffi)
+    elseif(TARGET nros_cpp::nros_cpp)
+      target_link_libraries(${_lib_target} INTERFACE nros_cpp::nros_cpp)
     endif()
 
     # Link dependency libraries

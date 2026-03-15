@@ -17,7 +17,7 @@ bundled interfaces shipped with nano-ros.
 .. code-block:: cmake
 
   nano_ros_generate_interfaces(<target>
-    <interface_files>...
+    [<interface_files>...]
     [LANGUAGE C|CPP]
     [DEPENDENCIES <packages>...]
     [SKIP_INSTALL]
@@ -29,7 +29,7 @@ Arguments:
     ``<target>__nano_ros_c`` (C) or ``<target>__nano_ros_cpp`` (C++)
     library target.
   ``<interface_files>``
-    Relative paths to .msg, .srv, or .action files
+    Optional.  Relative paths to .msg, .srv, or .action files
     (e.g., ``msg/Int32.msg``, ``srv/AddTwoInts.srv``).
     Each file is resolved in order:
 
@@ -37,6 +37,12 @@ Arguments:
     2. ``${prefix}/share/<target>/<file>``      (ament index)
     3. ``${_NANO_ROS_PREFIX}/share/nano-ros/interfaces/<target>/<file>``
        (bundled)
+
+    If no files are specified, auto-discovers from:
+
+    1. Local ``msg/``, ``srv/``, ``action/`` directories
+    2. Ament index (``AMENT_PREFIX_PATH``)
+    3. Bundled interfaces shipped with nano-ros
   ``LANGUAGE``
     Target language: ``C`` (default) or ``CPP``.
     C mode generates ``.h`` + ``.c`` files.
@@ -138,27 +144,62 @@ function(nano_ros_generate_interfaces target)
   endif()
   string(TOUPPER "${_ARG_LANGUAGE}" _ARG_LANGUAGE)
 
-  if(NOT _ARG_UNPARSED_ARGUMENTS)
-    message(FATAL_ERROR
-      "nano_ros_generate_interfaces() called without any interface files")
-  endif()
-
-  # Resolve every interface file
+  # Resolve or auto-discover interface files
   set(_interface_files "")
-  foreach(_relpath ${_ARG_UNPARSED_ARGUMENTS})
-    _nano_ros_resolve_interface("${target}" "${_relpath}" _abs_path)
-    if(_abs_path STREQUAL "NOTFOUND")
-      message(FATAL_ERROR
-        "nano_ros_generate_interfaces(): cannot find '${_relpath}' for "
-        "package '${target}'.\n"
-        "  Searched:\n"
-        "    ${CMAKE_CURRENT_SOURCE_DIR}/${_relpath}\n"
-        "    AMENT_PREFIX_PATH/share/${target}/${_relpath}\n"
-        "    ${_NANO_ROS_PREFIX}/share/nano-ros/interfaces/${target}/${_relpath}\n"
-        "  Hint: run 'just install-local', or check the file path.")
+
+  if(_ARG_UNPARSED_ARGUMENTS)
+    # Explicit files: resolve each via local + ament + bundled
+    foreach(_relpath ${_ARG_UNPARSED_ARGUMENTS})
+      _nano_ros_resolve_interface("${target}" "${_relpath}" _abs_path)
+      if(_abs_path STREQUAL "NOTFOUND")
+        message(FATAL_ERROR
+          "nano_ros_generate_interfaces(): cannot find '${_relpath}' for "
+          "package '${target}'.\n"
+          "  Searched:\n"
+          "    ${CMAKE_CURRENT_SOURCE_DIR}/${_relpath}\n"
+          "    AMENT_PREFIX_PATH/share/${target}/${_relpath}\n"
+          "    ${_NANO_ROS_PREFIX}/share/nano-ros/interfaces/${target}/${_relpath}\n"
+          "  Hint: run 'just install-local', or check the file path.")
+      endif()
+      list(APPEND _interface_files "${_abs_path}")
+    endforeach()
+  else()
+    # Auto-discover: no files specified — search local dirs, ament, bundled
+    # 1. Local directories
+    file(GLOB _local_msg "${CMAKE_CURRENT_SOURCE_DIR}/msg/*.msg")
+    file(GLOB _local_srv "${CMAKE_CURRENT_SOURCE_DIR}/srv/*.srv")
+    file(GLOB _local_action "${CMAKE_CURRENT_SOURCE_DIR}/action/*.action")
+    list(APPEND _interface_files ${_local_msg} ${_local_srv} ${_local_action})
+
+    # 2. Ament index
+    if(NOT _interface_files AND DEFINED ENV{AMENT_PREFIX_PATH})
+      string(REPLACE ":" ";" _ament_paths "$ENV{AMENT_PREFIX_PATH}")
+      foreach(_prefix ${_ament_paths})
+        file(GLOB _ament_msg "${_prefix}/share/${target}/msg/*.msg")
+        file(GLOB _ament_srv "${_prefix}/share/${target}/srv/*.srv")
+        file(GLOB _ament_action "${_prefix}/share/${target}/action/*.action")
+        list(APPEND _interface_files ${_ament_msg} ${_ament_srv} ${_ament_action})
+      endforeach()
     endif()
-    list(APPEND _interface_files "${_abs_path}")
-  endforeach()
+
+    # 3. Bundled interfaces
+    if(NOT _interface_files)
+      file(GLOB _bundled_msg "${_NANO_ROS_PREFIX}/share/nano-ros/interfaces/${target}/msg/*.msg")
+      file(GLOB _bundled_srv "${_NANO_ROS_PREFIX}/share/nano-ros/interfaces/${target}/srv/*.srv")
+      file(GLOB _bundled_action "${_NANO_ROS_PREFIX}/share/nano-ros/interfaces/${target}/action/*.action")
+      list(APPEND _interface_files ${_bundled_msg} ${_bundled_srv} ${_bundled_action})
+    endif()
+
+    if(NOT _interface_files)
+      message(FATAL_ERROR
+        "nano_ros_generate_interfaces(): no interface files found for '${target}'.\n"
+        "  Searched:\n"
+        "    ${CMAKE_CURRENT_SOURCE_DIR}/{msg,srv,action}/\n"
+        "    AMENT_PREFIX_PATH/share/${target}/{msg,srv,action}/\n"
+        "    ${_NANO_ROS_PREFIX}/share/nano-ros/interfaces/${target}/{msg,srv,action}/\n"
+        "  Hint: add msg/*.msg locally, source ROS 2 setup.bash, or run 'just install-local'.")
+    endif()
+  endif()
 
   # Output directory — language-specific subdirectory
   if(_ARG_LANGUAGE STREQUAL "CPP")

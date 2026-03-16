@@ -180,6 +180,10 @@ pub struct NrosField {
     pub is_string_element: bool,
     /// True if this is a fixed-size array with > 32 elements (no Default for [T; N] where N > 32)
     pub is_large_array: bool,
+    /// True for unbounded strings (FieldType::String, FieldType::WString) — will use `&'a str`
+    pub is_unbounded_string: bool,
+    /// True for unbounded sequences (FieldType::Sequence) — will use `&'a [T]`
+    pub is_unbounded_sequence: bool,
 }
 
 #[derive(Template)]
@@ -196,6 +200,9 @@ pub struct MessageNrosTemplate<'a> {
     pub has_large_array: bool,
     /// When true, uses nros_core:: prefixed imports instead of direct use statements
     pub inline_mode: bool,
+    /// True if any field uses `&'a str` or `&'a [T]` (unbounded string/sequence),
+    /// requiring a lifetime parameter on the struct.
+    pub needs_lifetime: bool,
 }
 
 #[derive(Template)]

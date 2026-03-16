@@ -60,12 +60,10 @@ fn test_generate_std_msgs_string() {
 
     let pkg = result.unwrap();
 
-    // Verify string uses heapless::String
-    assert!(pkg.message_rs.contains("heapless::String<256>"));
-    assert!(
-        pkg.message_rs
-            .contains("writer.write_string(self.data.as_str())?")
-    );
+    // Unbounded string → &'a str (borrowed)
+    assert!(pkg.message_rs.contains("&'a str"));
+    assert!(pkg.message_rs.contains("pub struct String<'a>"));
+    assert!(pkg.message_rs.contains("writer.write_string(self.data)?"));
 }
 
 #[test]
@@ -193,19 +191,17 @@ fn test_generate_message_with_sequence() {
 
     let pkg = result.unwrap();
 
-    // Verify sequences use heapless::Vec
-    assert!(pkg.message_rs.contains("heapless::Vec<i32, 64>"));
-    assert!(pkg.message_rs.contains("heapless::Vec<f64, 64>"));
+    // Unbounded sequences → borrowed slices &'a [T]
+    assert!(pkg.message_rs.contains("&'a [i32]"));
+    assert!(pkg.message_rs.contains("&'a [f64]"));
 
-    // Verify sequence serialization/deserialization
+    // Verify sequence serialization writes length prefix
     assert!(
         pkg.message_rs
             .contains("writer.write_u32(self.data.len() as u32)?")
     );
-    assert!(
-        pkg.message_rs
-            .contains("let len = reader.read_u32()? as usize")
-    );
+    // Borrowed deserialization uses read_slice for primitive sequences
+    assert!(pkg.message_rs.contains("deserialize_borrowed"));
 }
 
 #[test]

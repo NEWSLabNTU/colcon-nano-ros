@@ -207,9 +207,6 @@ pub fn generate_nros_message_package(
 
     let has_fields = !fields.is_empty();
     let has_large_array = fields.iter().any(|f| f.is_large_array);
-    let needs_lifetime = fields
-        .iter()
-        .any(|f| f.is_unbounded_string || f.is_unbounded_sequence);
     let message_template = MessageNrosTemplate {
         package_name,
         message_name,
@@ -219,7 +216,6 @@ pub fn generate_nros_message_package(
         has_fields,
         has_large_array,
         inline_mode: false,
-        needs_lifetime,
     };
     let message_rs = message_template.render()?;
 
@@ -261,9 +257,6 @@ pub fn generate_nros_inline_message(
     let type_hash = edition.type_hash();
     let has_fields = !fields.is_empty();
     let has_large_array = fields.iter().any(|f| f.is_large_array);
-    let needs_lifetime = fields
-        .iter()
-        .any(|f| f.is_unbounded_string || f.is_unbounded_sequence);
 
     let template = MessageNrosTemplate {
         package_name,
@@ -274,7 +267,6 @@ pub fn generate_nros_inline_message(
         has_fields,
         has_large_array,
         inline_mode: true,
-        needs_lifetime,
     };
 
     Ok(template.render()?)

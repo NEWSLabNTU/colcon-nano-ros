@@ -519,7 +519,16 @@ pub fn nros_type_for_field_with_mode(
     match field_type {
         FieldType::Primitive(prim) => prim.rust_type().to_string(),
 
-        FieldType::String => "&'a str".to_string(),
+        FieldType::String => {
+            if inline {
+                format!(
+                    "nros_core::heapless::String<{}>",
+                    NROS_DEFAULT_STRING_CAPACITY
+                )
+            } else {
+                format!("heapless::String<{}>", NROS_DEFAULT_STRING_CAPACITY)
+            }
+        }
 
         FieldType::BoundedString(size) => {
             if inline {
@@ -530,8 +539,15 @@ pub fn nros_type_for_field_with_mode(
         }
 
         FieldType::WString => {
-            // WString maps to &str (UTF-8), same as String
-            "&'a str".to_string()
+            // WString maps to regular heapless::String (UTF-8)
+            if inline {
+                format!(
+                    "nros_core::heapless::String<{}>",
+                    NROS_DEFAULT_STRING_CAPACITY
+                )
+            } else {
+                format!("heapless::String<{}>", NROS_DEFAULT_STRING_CAPACITY)
+            }
         }
 
         FieldType::BoundedWString(size) => {
@@ -549,7 +565,17 @@ pub fn nros_type_for_field_with_mode(
 
         FieldType::Sequence { element_type } => {
             let elem = nros_type_for_field_with_mode(element_type, current_package, mode);
-            format!("&'a [{}]", elem)
+            if inline {
+                format!(
+                    "nros_core::heapless::Vec<{}, {}>",
+                    elem, NROS_DEFAULT_SEQUENCE_CAPACITY
+                )
+            } else {
+                format!(
+                    "heapless::Vec<{}, {}>",
+                    elem, NROS_DEFAULT_SEQUENCE_CAPACITY
+                )
+            }
         }
 
         FieldType::BoundedSequence {
@@ -951,20 +977,22 @@ pub fn c_type_for_field(field_type: &FieldType, _current_package: Option<&str>) 
     match field_type {
         FieldType::Primitive(prim) => c_primitive_type(prim),
 
-        // Unbounded strings use pointer+length (borrowed from CDR buffer)
-        FieldType::String | FieldType::WString => {
-            "struct { const char* data; size_t size; }".to_string()
-        }
-        // Bounded strings use fixed char array
-        FieldType::BoundedString(_) | FieldType::BoundedWString(_) => "char".to_string(),
+        // Strings use char as base type, with array suffix for the size
+        FieldType::String | FieldType::BoundedString(_) => "char".to_string(),
+
+        FieldType::WString | FieldType::BoundedWString(_) => "char".to_string(),
 
         // Arrays use the element type as base type, with array suffix for the size
         FieldType::Array { element_type, .. } => c_type_for_field(element_type, _current_package),
 
-        // Unbounded sequences use pointer+length (borrowed from CDR buffer)
+        // Sequences use anonymous struct
         FieldType::Sequence { element_type } => {
             let elem = c_type_for_field(element_type, _current_package);
-            format!("struct {{ const {}* data; size_t size; }}", elem)
+            let elem_suffix = c_array_suffix_for_field(element_type);
+            format!(
+                "struct {{ uint32_t size; {} data{}[{}]; }}",
+                elem, elem_suffix, C_DEFAULT_SEQUENCE_CAPACITY
+            )
         }
 
         FieldType::BoundedSequence {
@@ -994,9 +1022,9 @@ pub fn c_type_for_field(field_type: &FieldType, _current_package: Option<&str>) 
 /// This comes after the field name in C declarations: `char name[256];`
 pub fn c_array_suffix_for_field(field_type: &FieldType) -> String {
     match field_type {
-        // Unbounded strings are struct { const char* data; size_t size; } — no array suffix
-        FieldType::String | FieldType::WString => String::new(),
+        FieldType::String => format!("[{}]", C_DEFAULT_STRING_CAPACITY),
         FieldType::BoundedString(size) => format!("[{}]", size),
+        FieldType::WString => format!("[{}]", C_DEFAULT_STRING_CAPACITY),
         FieldType::BoundedWString(size) => format!("[{}]", size),
         FieldType::Array { element_type, size } => {
             // For nested arrays (rare), we need to combine suffixes
@@ -1157,8 +1185,9 @@ pub fn cpp_type_for_field(field_type: &FieldType, _current_package: Option<&str>
     match field_type {
         FieldType::Primitive(prim) => c_primitive_type(prim),
 
-        FieldType::String | FieldType::WString => "nros::StringView".to_string(),
+        FieldType::String => format!("nros::FixedString<{}>", CPP_DEFAULT_STRING_CAPACITY),
         FieldType::BoundedString(size) => format!("nros::FixedString<{}>", size),
+        FieldType::WString => format!("nros::FixedString<{}>", CPP_DEFAULT_STRING_CAPACITY),
         FieldType::BoundedWString(size) => format!("nros::FixedString<{}>", size),
 
         FieldType::Array { element_type, size } => {
@@ -1168,7 +1197,10 @@ pub fn cpp_type_for_field(field_type: &FieldType, _current_package: Option<&str>
 
         FieldType::Sequence { element_type } => {
             let elem = cpp_type_for_field(element_type, None);
-            format!("nros::Span<{}>", elem)
+            format!(
+                "nros::FixedSequence<{}, {}>",
+                elem, CPP_DEFAULT_SEQUENCE_CAPACITY
+            )
         }
 
         FieldType::BoundedSequence {

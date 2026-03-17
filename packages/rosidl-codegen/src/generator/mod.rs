@@ -190,16 +190,12 @@ mod tests {
         // Check message contains proper types
         assert!(pkg.message_rs.contains("pub x: i32"));
         assert!(pkg.message_rs.contains("pub y: f64"));
-        // Unbounded string becomes &'a str (borrowed)
-        assert!(pkg.message_rs.contains("&'a str"));
-        // Struct gets lifetime parameter
-        assert!(pkg.message_rs.contains("pub struct Point<'a>"));
+        assert!(pkg.message_rs.contains("heapless::String<256>"));
 
         // Check it has Serialize/Deserialize implementations
-        assert!(pkg.message_rs.contains("impl<'a> Serialize for Point<'a>"));
-        // Borrowed types use deserialize_borrowed instead of Deserialize trait
-        assert!(pkg.message_rs.contains("pub fn deserialize_borrowed"));
-        assert!(pkg.message_rs.contains("impl<'a> RosMessage for Point<'a>"));
+        assert!(pkg.message_rs.contains("impl Serialize for Point"));
+        assert!(pkg.message_rs.contains("impl Deserialize for Point"));
+        assert!(pkg.message_rs.contains("impl RosMessage for Point"));
     }
 
     #[test]
@@ -218,8 +214,8 @@ mod tests {
         assert!(result.is_ok());
 
         let pkg = result.unwrap();
-        // Unbounded sequence uses borrowed slice &'a [i32]
-        assert!(pkg.message_rs.contains("&'a [i32]"));
+        // Check sequence uses heapless::Vec
+        assert!(pkg.message_rs.contains("heapless::Vec<i32"));
     }
 
     #[test]
@@ -338,8 +334,7 @@ mod tests {
         assert!(result.is_ok());
 
         let pkg = result.unwrap();
-        // Unbounded string → borrowed struct { const char* data; size_t size; }
-        assert!(pkg.header.contains("const char* data"));
+        assert!(pkg.header.contains("char name[256]"));
         assert!(pkg.source.contains("nros_cdr_write_string"));
     }
 
@@ -504,9 +499,9 @@ mod tests {
 
         let pkg = result.unwrap();
 
-        // C++ header: unbounded string → nros::StringView (borrowed)
-        assert!(pkg.header.contains("nros::StringView"));
-        assert!(pkg.header.contains("span.hpp"));
+        // C++ header should use FixedString
+        assert!(pkg.header.contains("nros::FixedString<256>"));
+        assert!(pkg.header.contains("fixed_string.hpp"));
 
         // Rust FFI should use [u8; 256] and write_string
         assert!(pkg.ffi_rs.contains("[u8; 256]"));
@@ -542,8 +537,8 @@ mod tests {
 
         let pkg = result.unwrap();
 
-        // C++ header: unbounded sequence → nros::Span<T> (borrowed)
-        assert!(pkg.header.contains("nros::Span<int32_t>"));
+        // C++ header: FixedSequence
+        assert!(pkg.header.contains("nros::FixedSequence<int32_t, 64>"));
 
         // Rust FFI: sequence struct with size + data
         assert!(pkg.ffi_rs.contains("_seq_t"));

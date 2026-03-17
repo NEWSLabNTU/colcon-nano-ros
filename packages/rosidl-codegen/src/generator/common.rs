@@ -152,9 +152,6 @@ pub(super) fn field_to_nros_field_with_mode(
             _ => (false, false, String::new()),
         };
 
-    let is_unbounded_string = matches!(&field.field_type, FieldType::String | FieldType::WString);
-    let is_unbounded_sequence = matches!(&field.field_type, FieldType::Sequence { .. });
-
     NrosField {
         name,
         rust_type,
@@ -169,8 +166,6 @@ pub(super) fn field_to_nros_field_with_mode(
         is_primitive_element,
         is_string_element,
         is_large_array: array_size > 32,
-        is_unbounded_string,
-        is_unbounded_sequence,
     }
 }
 

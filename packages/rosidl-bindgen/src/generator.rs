@@ -11,8 +11,8 @@
 use crate::ament::Package;
 use eyre::{Result, WrapErr};
 use rosidl_codegen::{
-    RosEdition, compute_lifetime_types, generate_nros_action_package,
-    generate_nros_message_package_with_lifetimes, generate_nros_service_package_with_lifetimes,
+    RosEdition, generate_nros_action_package, generate_nros_message_package,
+    generate_nros_service_package,
     utils::{extract_dependencies, to_snake_case},
 };
 use std::collections::HashSet;
@@ -64,37 +64,26 @@ pub fn generate_package(
     let msg_dir = src_dir.join("msg");
     std::fs::create_dir_all(&msg_dir)?;
 
-    // Pre-scan: parse all messages to compute lifetime types
-    let mut parsed_messages: Vec<(String, rosidl_parser::Message)> = Vec::new();
+    // Generate messages
     for msg_name in &package.interfaces.messages {
         let msg_path = package.get_message_path(msg_name);
         let content = std::fs::read_to_string(&msg_path)
             .wrap_err_with(|| format!("Failed to read message file: {}", msg_path.display()))?;
+
         let parsed_msg = rosidl_parser::parse_message(&content)
             .wrap_err_with(|| format!("Failed to parse message: {}", msg_name))?;
 
+        // Extract dependencies
         let msg_deps = extract_dependencies(&parsed_msg);
         all_dependencies.extend(msg_deps);
-        parsed_messages.push((msg_name.clone(), parsed_msg));
-    }
 
-    // Compute which types need lifetime parameters (transitive propagation)
-    let lifetime_scan: Vec<(&str, &str, &rosidl_parser::Message)> = parsed_messages
-        .iter()
-        .map(|(name, msg)| (package.name.as_str(), name.as_str(), msg))
-        .collect();
-    let lifetime_types = compute_lifetime_types(&lifetime_scan);
-
-    // Generate messages with lifetime awareness
-    for (msg_name, parsed_msg) in &parsed_messages {
-        let generated = generate_nros_message_package_with_lifetimes(
+        let generated = generate_nros_message_package(
             &package.name,
             msg_name,
-            parsed_msg,
+            &parsed_msg,
             &all_dependencies,
             &package.version,
             edition,
-            &lifetime_types,
         )
         .wrap_err_with(|| format!("Failed to generate nros message: {}", msg_name))?;
 
@@ -124,14 +113,13 @@ pub fn generate_package(
             all_dependencies.extend(req_deps);
             all_dependencies.extend(resp_deps);
 
-            let generated = generate_nros_service_package_with_lifetimes(
+            let generated = generate_nros_service_package(
                 &package.name,
                 srv_name,
                 &parsed_srv,
                 &all_dependencies,
                 &package.version,
                 edition,
-                &lifetime_types,
             )
             .wrap_err_with(|| format!("Failed to generate nros service: {}", srv_name))?;
 
@@ -186,8 +174,8 @@ pub fn generate_package(
     // Remove self-dependency
     all_dependencies.remove(&package.name);
 
-    // Generate msg/mod.rs (with *Owned re-exports for types with lifetimes)
-    generate_msg_mod_rs(&msg_dir, package, &lifetime_types)?;
+    // Generate msg/mod.rs
+    generate_msg_mod_rs(&msg_dir, package)?;
 
     // Generate srv/mod.rs if there are services
     if !package.interfaces.services.is_empty() {
@@ -222,24 +210,14 @@ pub fn generate_package(
 }
 
 /// Generate msg/mod.rs for nros
-fn generate_msg_mod_rs(
-    msg_dir: &Path,
-    package: &Package,
-    lifetime_types: &std::collections::HashSet<String>,
-) -> Result<()> {
+fn generate_msg_mod_rs(msg_dir: &Path, package: &Package) -> Result<()> {
     let mut content = String::new();
     content.push_str("//! Message types for this package\n\n");
 
     for msg_name in &package.interfaces.messages {
         let module_name = to_snake_case(msg_name);
-        let qualified = format!("{}::{}", package.name, msg_name);
         content.push_str(&format!("mod {};\n", module_name));
-        content.push_str(&format!("pub use {}::{};\n", module_name, msg_name));
-        // Re-export *Owned variant if the type needs a lifetime
-        if lifetime_types.contains(&qualified) {
-            content.push_str(&format!("pub use {}::{}Owned;\n", module_name, msg_name));
-        }
-        content.push('\n');
+        content.push_str(&format!("pub use {}::{};\n\n", module_name, msg_name));
     }
 
     std::fs::write(msg_dir.join("mod.rs"), content)?;

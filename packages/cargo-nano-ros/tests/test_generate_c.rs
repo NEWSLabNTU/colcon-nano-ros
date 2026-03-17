@@ -80,8 +80,7 @@ string sensor_id
     assert!(header.contains("typedef struct test_msgs_msg_temperature"));
     assert!(header.contains("double celsius"));
     assert!(header.contains("double fahrenheit"));
-    // Unbounded string → borrowed struct { const char* data; size_t size; }
-    assert!(header.contains("const char* data"));
+    assert!(header.contains("char sensor_id["));
 
     // Verify source content (function names use lowercase)
     let source = fs::read_to_string(output_dir.join("msg/test_msgs_msg_temperature.c")).unwrap();

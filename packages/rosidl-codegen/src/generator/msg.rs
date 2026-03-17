@@ -1,6 +1,6 @@
 use super::common::{
     GeneratorError, build_c_field, determine_field_kind, field_to_nros_field,
-    field_to_nros_field_with_lifetime, field_to_nros_field_with_mode,
+    field_to_nros_field_with_mode,
 };
 use crate::templates::{
     BuildRsTemplate, CConstant, CField, CargoNrosTomlTemplate, CargoTomlTemplate, IdiomaticField,
@@ -160,30 +160,6 @@ pub fn generate_nros_message_package(
     package_version: &str,
     edition: RosEdition,
 ) -> Result<GeneratedNrosPackage, GeneratorError> {
-    generate_nros_message_package_with_lifetimes(
-        package_name,
-        message_name,
-        message,
-        all_dependencies,
-        package_version,
-        edition,
-        &HashSet::new(),
-    )
-}
-
-/// Generate a nros message package with lifetime propagation for nested types.
-///
-/// `lifetime_types` is the set of qualified type names (e.g., `"rcl_interfaces::ParameterValue"`)
-/// that need lifetime parameters. Built by [`crate::types::compute_lifetime_types`].
-pub fn generate_nros_message_package_with_lifetimes(
-    package_name: &str,
-    message_name: &str,
-    message: &Message,
-    all_dependencies: &HashSet<String>,
-    package_version: &str,
-    edition: RosEdition,
-    lifetime_types: &HashSet<String>,
-) -> Result<GeneratedNrosPackage, GeneratorError> {
     // Extract dependencies from this specific message
     let msg_deps = extract_dependencies(message);
 
@@ -209,27 +185,12 @@ pub fn generate_nros_message_package_with_lifetimes(
     };
     let lib_rs = lib_rs_template.render()?;
 
-    // Generate message fields (with lifetime awareness for nested types)
-    let fields: Vec<NrosField> = if lifetime_types.is_empty() {
-        message
-            .fields
-            .iter()
-            .map(|f| field_to_nros_field(f, package_name))
-            .collect()
-    } else {
-        message
-            .fields
-            .iter()
-            .map(|f| {
-                field_to_nros_field_with_lifetime(
-                    f,
-                    package_name,
-                    NrosCodegenMode::Crate,
-                    lifetime_types,
-                )
-            })
-            .collect()
-    };
+    // Generate message fields
+    let fields: Vec<NrosField> = message
+        .fields
+        .iter()
+        .map(|f| field_to_nros_field(f, package_name))
+        .collect();
 
     // Generate constants
     let constants: Vec<MessageConstant> = message
@@ -246,11 +207,9 @@ pub fn generate_nros_message_package_with_lifetimes(
 
     let has_fields = !fields.is_empty();
     let has_large_array = fields.iter().any(|f| f.is_large_array);
-    let needs_lifetime = fields.iter().any(|f| {
-        f.is_unbounded_string
-            || f.is_unbounded_sequence
-            || (f.is_nested && !f.owned_type.is_empty())
-    });
+    let needs_lifetime = fields
+        .iter()
+        .any(|f| f.is_unbounded_string || f.is_unbounded_sequence);
     let message_template = MessageNrosTemplate {
         package_name,
         message_name,

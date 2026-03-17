@@ -49,6 +49,15 @@ use std::path::{Path, PathBuf};
 /// These are shipped with nros so codegen works without a ROS 2 environment.
 const BUNDLED_INTERFACES_DIR: &str = "interfaces";
 
+/// Parse `--rename old=new` argument.
+pub fn parse_rename(s: &str) -> Result<(String, String), String> {
+    let parts: Vec<&str> = s.splitn(2, '=').collect();
+    if parts.len() != 2 {
+        return Err(format!("expected format: old_pkg=new_crate_name, got: {s}"));
+    }
+    Ok((parts[0].to_string(), parts[1].to_string()))
+}
+
 /// Configuration for generating bindings from package.xml
 #[derive(Debug, Clone)]
 pub struct GenerateConfig {

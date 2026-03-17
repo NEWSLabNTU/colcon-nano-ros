@@ -139,14 +139,7 @@ enum NanoRosCommand {
     },
 }
 
-/// Parse `--rename old=new` argument
-fn parse_rename(s: &str) -> Result<(String, String), String> {
-    let parts: Vec<&str> = s.splitn(2, '=').collect();
-    if parts.len() != 2 {
-        return Err(format!("expected format: old_pkg=new_crate_name, got: {s}"));
-    }
-    Ok((parts[0].to_string(), parts[1].to_string()))
-}
+use cargo_nano_ros::parse_rename;
 
 fn run_generate(cfg: GenerateConfig) -> Result<()> {
     cargo_nano_ros::generate_from_package_xml(cfg)

@@ -59,6 +59,10 @@ enum Command {
         /// ROS 2 edition for type hash format (humble or iron)
         #[arg(long, default_value = "humble")]
         ros_edition: String,
+
+        /// Rename a generated package: --rename old_pkg=new_crate_name
+        #[arg(long, value_parser = cargo_nano_ros::parse_rename)]
+        rename: Vec<(String, String)>,
     },
 
     /// (Hidden) Backward-compatible alias for generate-rust
@@ -78,6 +82,8 @@ enum Command {
         force: bool,
         #[arg(long, default_value = "humble")]
         ros_edition: String,
+        #[arg(long, value_parser = cargo_nano_ros::parse_rename)]
+        rename: Vec<(String, String)>,
     },
 
     /// Generate C bindings from package.xml or JSON arguments file
@@ -151,6 +157,7 @@ fn main() -> Result<()> {
             nano_ros_git,
             force,
             ros_edition,
+            rename,
         }
         | Command::Generate {
             manifest_path,
@@ -160,6 +167,7 @@ fn main() -> Result<()> {
             nano_ros_git,
             force,
             ros_edition,
+            rename,
         } => {
             run_generate(GenerateConfig {
                 manifest_path,
@@ -170,7 +178,7 @@ fn main() -> Result<()> {
                 force,
                 verbose: cli.verbose,
                 ros_edition,
-                renames: std::collections::HashMap::new(),
+                renames: rename.into_iter().collect(),
             })?;
         }
 

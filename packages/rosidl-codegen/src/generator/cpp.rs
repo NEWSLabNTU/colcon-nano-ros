@@ -69,7 +69,7 @@ fn build_fields(
     let mut seq_structs = Vec::new();
 
     for field in fields {
-        cpp_fields.push(build_cpp_field(&field.name, &field.field_type));
+        cpp_fields.push(build_cpp_field(&field.name, &field.field_type, current_package));
         let (ffi_field, seq_struct) =
             build_cpp_ffi_field(&field.name, &field.field_type, struct_name, current_package);
         ffi_fields.push(ffi_field);
@@ -93,22 +93,72 @@ fn build_constants(constants: &[rosidl_parser::Constant]) -> Vec<CConstant> {
         .collect()
 }
 
-/// Helper: extract unique dependencies from fields
+/// Helper: extract unique cross-package dependencies from fields
 fn extract_deps(fields: &[rosidl_parser::Field]) -> Vec<String> {
     let mut deps = Vec::new();
     for field in fields {
-        if let FieldType::NamespacedType {
-            package: Some(pkg), ..
-        } = &field.field_type
-        {
-            let dep = to_c_package_name(pkg);
-            if !deps.contains(&dep) {
-                deps.push(dep);
-            }
-        }
+        collect_field_type_cross_pkg_deps(&field.field_type, &mut deps);
     }
     deps.sort();
     deps
+}
+
+fn collect_field_type_cross_pkg_deps(ft: &FieldType, deps: &mut Vec<String>) {
+    match ft {
+        FieldType::NamespacedType {
+            package: Some(pkg), ..
+        } => {
+            let dep = to_c_package_name(pkg);
+            if !deps.contains(&dep) {
+                deps.push(dep.clone());
+            }
+        }
+        FieldType::Array { element_type, .. }
+        | FieldType::Sequence { element_type }
+        | FieldType::BoundedSequence { element_type, .. } => {
+            collect_field_type_cross_pkg_deps(element_type, deps);
+        }
+        _ => {}
+    }
+}
+
+/// Helper: extract includes for same-package (intra-package) type dependencies.
+/// These must be included individually to avoid ordering issues in the umbrella header.
+fn extract_intra_package_includes(
+    fields: &[rosidl_parser::Field],
+    package_name: &str,
+) -> Vec<String> {
+    let c_pkg = to_c_package_name(package_name);
+    let mut includes = Vec::new();
+    for field in fields {
+        collect_field_type_intra_pkg_includes(&field.field_type, &c_pkg, &mut includes);
+    }
+    includes.sort();
+    includes
+}
+
+fn collect_field_type_intra_pkg_includes(
+    ft: &FieldType,
+    c_pkg: &str,
+    includes: &mut Vec<String>,
+) {
+    match ft {
+        FieldType::NamespacedType {
+            package: None,
+            name,
+        } => {
+            let path = format!("msg/{}_msg_{}.hpp", c_pkg, to_snake_case(name));
+            if !includes.contains(&path) {
+                includes.push(path);
+            }
+        }
+        FieldType::Array { element_type, .. }
+        | FieldType::Sequence { element_type }
+        | FieldType::BoundedSequence { element_type, .. } => {
+            collect_field_type_intra_pkg_includes(element_type, c_pkg, includes);
+        }
+        _ => {}
+    }
 }
 
 /// Generate a Rust FFI glue module for a message-like struct
@@ -174,6 +224,7 @@ pub fn generate_cpp_message_package(
         build_fields(&message.fields, &struct_name, Some(package_name));
     let constants = build_constants(&message.constants);
     let dependencies = extract_deps(&message.fields);
+    let intra_package_includes = extract_intra_package_includes(&message.fields, package_name);
     let has_fields = !cpp_fields.is_empty();
     let serialized_size_max = compute_serialized_size_max(&ffi_fields);
 
@@ -190,6 +241,7 @@ pub fn generate_cpp_message_package(
         fields: cpp_fields,
         constants,
         dependencies,
+        intra_package_includes,
         has_fields,
         serialized_size_max,
     };
@@ -288,6 +340,17 @@ pub fn generate_cpp_service_package(
         deps.sort();
         deps
     };
+    let intra_package_includes = {
+        let mut incs =
+            extract_intra_package_includes(&service.request.fields, package_name);
+        for i in extract_intra_package_includes(&service.response.fields, package_name) {
+            if !incs.contains(&i) {
+                incs.push(i);
+            }
+        }
+        incs.sort();
+        incs
+    };
 
     // Render header
     let header_template = ServiceCppHeaderTemplate {
@@ -307,6 +370,7 @@ pub fn generate_cpp_service_package(
         response_fields: resp_cpp_fields,
         response_constants: resp_constants,
         dependencies,
+        intra_package_includes,
         has_request_fields: !service.request.fields.is_empty(),
         has_response_fields: !service.response.fields.is_empty(),
         request_serialized_size_max: req_serialized_size,
@@ -437,6 +501,21 @@ pub fn generate_cpp_action_package(
         deps.sort();
         deps
     };
+    let intra_package_includes = {
+        let mut incs = extract_intra_package_includes(&action.spec.goal.fields, package_name);
+        for i in extract_intra_package_includes(&action.spec.result.fields, package_name) {
+            if !incs.contains(&i) {
+                incs.push(i);
+            }
+        }
+        for i in extract_intra_package_includes(&action.spec.feedback.fields, package_name) {
+            if !incs.contains(&i) {
+                incs.push(i);
+            }
+        }
+        incs.sort();
+        incs
+    };
 
     // Render header
     let header_template = ActionCppHeaderTemplate {
@@ -461,6 +540,7 @@ pub fn generate_cpp_action_package(
         feedback_fields: feedback.cpp_fields,
         feedback_constants: feedback.constants,
         dependencies,
+        intra_package_includes,
         has_goal_fields: !action.spec.goal.fields.is_empty(),
         has_result_fields: !action.spec.result.fields.is_empty(),
         has_feedback_fields: !action.spec.feedback.fields.is_empty(),

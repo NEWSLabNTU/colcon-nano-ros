@@ -494,6 +494,8 @@ pub struct MessageCppHeaderTemplate<'a> {
     pub fields: Vec<CppField>,
     pub constants: Vec<CConstant>,
     pub dependencies: Vec<String>,
+    /// Same-package type includes (relative paths like "msg/pkg_msg_foo.hpp")
+    pub intra_package_includes: Vec<String>,
     pub has_fields: bool,
     pub serialized_size_max: usize,
 }
@@ -534,6 +536,7 @@ pub struct ServiceCppHeaderTemplate<'a> {
     pub response_fields: Vec<CppField>,
     pub response_constants: Vec<CConstant>,
     pub dependencies: Vec<String>,
+    pub intra_package_includes: Vec<String>,
     pub has_request_fields: bool,
     pub has_response_fields: bool,
     pub request_serialized_size_max: usize,
@@ -564,6 +567,7 @@ pub struct ActionCppHeaderTemplate<'a> {
     pub feedback_fields: Vec<CppField>,
     pub feedback_constants: Vec<CConstant>,
     pub dependencies: Vec<String>,
+    pub intra_package_includes: Vec<String>,
     pub has_goal_fields: bool,
     pub has_result_fields: bool,
     pub has_feedback_fields: bool,

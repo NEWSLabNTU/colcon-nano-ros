@@ -13,7 +13,10 @@
 #include "nros/fixed_sequence.hpp"
 
 {%- for dep in dependencies %}
-#include "{{ dep }}_msg.hpp"
+#include "{{ dep }}.hpp"
+{%- endfor %}
+{%- for inc in intra_package_includes %}
+#include "{{ inc }}"
 {%- endfor %}
 
 // FFI declarations

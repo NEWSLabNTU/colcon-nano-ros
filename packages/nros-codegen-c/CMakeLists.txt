@@ -24,5 +24,6 @@ install(FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/NanoRosGenerateInterfaces.cmake"
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cpp_ffi_Cargo.toml.in"
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cpp_ffi_lib.rs.in"
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/ffi_lib_rs.in"
     DESTINATION lib/cmake/NanoRos
 )

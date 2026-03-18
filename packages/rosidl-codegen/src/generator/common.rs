@@ -290,9 +290,13 @@ pub(super) fn build_c_field(
 }
 
 /// Build a CppField for C++ header generation
-pub(super) fn build_cpp_field(name: &str, field_type: &FieldType) -> CppField {
+pub(super) fn build_cpp_field(
+    name: &str,
+    field_type: &FieldType,
+    current_package: Option<&str>,
+) -> CppField {
     let escaped_name = escape_keyword(name);
-    let cpp_type = cpp_type_for_field(field_type, None);
+    let cpp_type = cpp_type_for_field(field_type, current_package);
     let array_suffix = cpp_array_suffix_for_field(field_type);
 
     // For arrays, the cpp_type already contains the base type, and array_suffix has [N]
@@ -301,7 +305,9 @@ pub(super) fn build_cpp_field(name: &str, field_type: &FieldType) -> CppField {
     let (final_type, final_suffix) = if !array_suffix.is_empty() {
         // Array field: base type is without the [N] suffix
         let base = match field_type {
-            FieldType::Array { element_type, .. } => cpp_type_for_field(element_type, None),
+            FieldType::Array { element_type, .. } => {
+                cpp_type_for_field(element_type, current_package)
+            }
             _ => cpp_type,
         };
         (base, array_suffix)
@@ -456,11 +462,9 @@ pub(super) fn build_cpp_ffi_field(
             Some(FieldType::WString) => format!("[u8; {}]", CPP_DEFAULT_STRING_CAPACITY),
             Some(FieldType::BoundedWString(sz)) => format!("[u8; {}]", sz),
             Some(FieldType::NamespacedType { package, name: n }) => {
-                if let Some(pkg) = package {
-                    format!("{}_msg_{}_t", to_c_package_name(pkg), to_snake_case(n))
-                } else {
-                    format!("msg_{}_t", to_snake_case(n))
-                }
+                // When package is None the element type is from the current package
+                let pkg = package.as_deref().or(current_package).unwrap_or("unknown");
+                format!("{}_msg_{}_t", to_c_package_name(pkg), to_snake_case(n))
             }
             _ => "u8".to_string(),
         };

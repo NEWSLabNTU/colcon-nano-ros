@@ -1126,7 +1126,7 @@ pub const CPP_DEFAULT_STRING_CAPACITY: usize = 256;
 pub const CPP_DEFAULT_SEQUENCE_CAPACITY: usize = 64;
 
 /// Get the Rust `#[repr(C)]` type for a field (for C++ FFI glue)
-pub fn repr_c_type_for_field(field_type: &FieldType, _current_package: Option<&str>) -> String {
+pub fn repr_c_type_for_field(field_type: &FieldType, current_package: Option<&str>) -> String {
     match field_type {
         FieldType::Primitive(prim) => repr_c_primitive_type(prim).to_string(),
 
@@ -1138,7 +1138,7 @@ pub fn repr_c_type_for_field(field_type: &FieldType, _current_package: Option<&s
 
         // Arrays use [T; N]
         FieldType::Array { element_type, size } => {
-            let elem = repr_c_type_for_field(element_type, None);
+            let elem = repr_c_type_for_field(element_type, current_package);
             format!("[{}; {}]", elem, size)
         }
 
@@ -1149,11 +1149,9 @@ pub fn repr_c_type_for_field(field_type: &FieldType, _current_package: Option<&s
         }
 
         FieldType::NamespacedType { package, name } => {
-            if let Some(pkg) = package {
-                format!("{}_msg_{}_t", to_c_package_name(pkg), to_snake_case(name))
-            } else {
-                format!("msg_{}_t", to_snake_case(name))
-            }
+            // When package is None the type is from the current package
+            let pkg = package.as_deref().or(current_package).unwrap_or("unknown");
+            format!("{}_msg_{}_t", to_c_package_name(pkg), to_snake_case(name))
         }
     }
 }
@@ -1181,7 +1179,7 @@ fn repr_c_primitive_type(prim: &rosidl_parser::PrimitiveType) -> &'static str {
 /// Get the C++ type for a field (for C++ header generation)
 ///
 /// Uses `FixedString<N>` for strings and `FixedSequence<T,N>` for sequences.
-pub fn cpp_type_for_field(field_type: &FieldType, _current_package: Option<&str>) -> String {
+pub fn cpp_type_for_field(field_type: &FieldType, current_package: Option<&str>) -> String {
     match field_type {
         FieldType::Primitive(prim) => c_primitive_type(prim),
 
@@ -1191,12 +1189,12 @@ pub fn cpp_type_for_field(field_type: &FieldType, _current_package: Option<&str>
         FieldType::BoundedWString(size) => format!("nros::FixedString<{}>", size),
 
         FieldType::Array { element_type, size } => {
-            let elem = cpp_type_for_field(element_type, None);
+            let elem = cpp_type_for_field(element_type, current_package);
             format!("{}[{}]", elem, size)
         }
 
         FieldType::Sequence { element_type } => {
-            let elem = cpp_type_for_field(element_type, None);
+            let elem = cpp_type_for_field(element_type, current_package);
             format!(
                 "nros::FixedSequence<{}, {}>",
                 elem, CPP_DEFAULT_SEQUENCE_CAPACITY
@@ -1207,15 +1205,17 @@ pub fn cpp_type_for_field(field_type: &FieldType, _current_package: Option<&str>
             element_type,
             max_size,
         } => {
-            let elem = cpp_type_for_field(element_type, None);
+            let elem = cpp_type_for_field(element_type, current_package);
             format!("nros::FixedSequence<{}, {}>", elem, max_size)
         }
 
         FieldType::NamespacedType { package, name } => {
             if let Some(pkg) = package {
-                format!("{}_msg_{}", to_c_package_name(pkg), to_snake_case(name))
+                // Cross-package reference: fully qualified C++ namespace path
+                format!("{}::msg::{}", pkg, name)
             } else {
-                format!("msg_{}", to_snake_case(name))
+                // Same-package reference: bare name (resolved inside the enclosing namespace)
+                name.clone()
             }
         }
     }

@@ -71,6 +71,14 @@ endif()
 function(_nros_resolve_interface target relpath out_var)
   set(${out_var} "NOTFOUND" PARENT_SCOPE)
 
+  # 0. Absolute path — pass through directly
+  if(IS_ABSOLUTE "${relpath}")
+    if(EXISTS "${relpath}")
+      set(${out_var} "${relpath}" PARENT_SCOPE)
+    endif()
+    return()
+  endif()
+
   # 1. Local file
   set(_local "${CMAKE_CURRENT_SOURCE_DIR}/${relpath}")
   if(EXISTS "${_local}")
@@ -344,18 +352,11 @@ function(nros_generate_interfaces target)
       # Using include!() instead of mod keeps all types in the same scope,
       # so cross-package type references (e.g. builtin_interfaces_msg_time_t
       # used in std_msgs) resolve correctly.
-      set(_lib_rs_content "")
-      string(APPEND _lib_rs_content "// Auto-generated — do not edit\n")
-      string(APPEND _lib_rs_content "#![no_std]\n")
-      string(APPEND _lib_rs_content "#![allow(non_camel_case_types)]\n\n")
-      string(APPEND _lib_rs_content "#[panic_handler]\n")
-      string(APPEND _lib_rs_content "fn panic(_info: &core::panic::PanicInfo) -> ! {\n")
-      string(APPEND _lib_rs_content "    loop {}\n")
-      string(APPEND _lib_rs_content "}\n\n")
-      string(APPEND _lib_rs_content "use nros_serdes::{CdrWriter, CdrReader, SerError, DeserError};\n\n")
-      string(APPEND _lib_rs_content "unsafe extern \"C\" {\n")
-      string(APPEND _lib_rs_content "    fn nros_cpp_publish_raw(handle: *mut core::ffi::c_void, data: *const u8, len: usize) -> i32\;\n")
-      string(APPEND _lib_rs_content "}\n\n")
+      #
+      # The static boilerplate lives in ffi_lib_rs.in (configure_file with @ONLY).
+      # Only the dynamic include!() list is assembled here — paths never contain
+      # semicolons, so no CMake list-escaping issues arise.
+      set(NROS_CPP_FFI_INCLUDES "")
 
       # include!() dependency FFI .rs files (so their types are in scope)
       foreach(_dep ${_ARG_DEPENDENCIES})
@@ -364,7 +365,7 @@ function(nros_generate_interfaces target)
             # Skip mod.rs — we use include!() instead
             get_filename_component(_rs_name "${_rs_file}" NAME)
             if(NOT _rs_name STREQUAL "mod.rs")
-              string(APPEND _lib_rs_content "include!(\"${_rs_file}\")\;\n")
+              string(APPEND NROS_CPP_FFI_INCLUDES "include!(\"${_rs_file}\");\n")
             endif()
           endforeach()
         endif()
@@ -374,11 +375,15 @@ function(nros_generate_interfaces target)
       foreach(_rs_file ${_generated_rs_files})
         get_filename_component(_rs_name "${_rs_file}" NAME)
         if(NOT _rs_name STREQUAL "mod.rs")
-          string(APPEND _lib_rs_content "include!(\"${_rs_file}\")\;\n")
+          string(APPEND NROS_CPP_FFI_INCLUDES "include!(\"${_rs_file}\");\n")
         endif()
       endforeach()
 
-      file(WRITE "${_ffi_crate_src}/lib.rs" "${_lib_rs_content}")
+      configure_file(
+        "${_NANO_ROS_CMAKE_DIR}/ffi_lib_rs.in"
+        "${_ffi_crate_src}/lib.rs"
+        @ONLY
+      )
 
       # For Tier 3 targets (e.g. armv7a-nuttx-eabi), generate a .cargo/config.toml
       # with build-std=core and use nightly toolchain.

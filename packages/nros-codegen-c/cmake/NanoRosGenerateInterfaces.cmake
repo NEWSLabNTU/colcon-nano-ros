@@ -588,7 +588,18 @@ function(nros_find_interfaces)
     return()
   endif()
 
-  # 3. Generate interfaces for each resolved package in topo order
+  # 3. Generate interfaces for each resolved package in topo order.
+  #
+  # For the C++ FFI crates we pass ALL packages that have been processed so
+  # far (in topological order) as the DEPENDENCIES argument, not just the
+  # direct dependencies listed in the resolved file.  This is necessary
+  # because the include!() inlining used by FFI crates places every package's
+  # generated Rust in a single compilation unit.  If package A includes
+  # action_msgs files which reference unique_identifier_msgs types, those
+  # types must also be include!()-d in A's lib.rs even though A only
+  # directly depends on action_msgs.  Using all preceding packages is a
+  # superset of the transitive closure and guarantees correctness.
+  set(_all_preceding_pkgs "")
   foreach(_pkg ${_NROS_RESOLVED_PACKAGES})
     set(_skip "")
     if(_ARG_SKIP_INSTALL)
@@ -597,7 +608,7 @@ function(nros_find_interfaces)
 
     nros_generate_interfaces(${_pkg}
       ${_NROS_RESOLVED_${_pkg}_FILES}
-      DEPENDENCIES ${_NROS_RESOLVED_${_pkg}_DEPS}
+      DEPENDENCIES ${_all_preceding_pkgs}
       LANGUAGE ${_ARG_LANGUAGE}
       ROS_EDITION ${_ARG_ROS_EDITION}
       ${_skip}
@@ -609,5 +620,8 @@ function(nros_find_interfaces)
     set(${_pkg}_GENERATED_HEADERS "${${_pkg}_GENERATED_HEADERS}" PARENT_SCOPE)
     set(${_pkg}_GENERATED_SOURCES "${${_pkg}_GENERATED_SOURCES}" PARENT_SCOPE)
     set(${_pkg}_GENERATED_RS_FILES "${${_pkg}_GENERATED_RS_FILES}" PARENT_SCOPE)
+
+    # Accumulate for the next package's DEPENDENCIES
+    list(APPEND _all_preceding_pkgs "${_pkg}")
   endforeach()
 endfunction()

@@ -1210,11 +1210,12 @@ pub fn cpp_type_for_field(field_type: &FieldType, current_package: Option<&str>)
         }
 
         FieldType::NamespacedType { package, name } => {
-            if let Some(pkg) = package {
-                // Cross-package reference: fully qualified C++ namespace path
+            // Always emit fully qualified names so the type resolves correctly from any
+            // namespace context (pkg::msg for messages, pkg::srv for services).
+            let pkg = package.as_deref().or(current_package);
+            if let Some(pkg) = pkg {
                 format!("{}::msg::{}", pkg, name)
             } else {
-                // Same-package reference: bare name (resolved inside the enclosing namespace)
                 name.clone()
             }
         }

@@ -74,10 +74,8 @@ class NrosBuildTask(TaskExtensionPoint):
             return await self._build_rust(pkg, args, platform,
                                           additional_hooks, skip_hook_creation)
         elif lang in ('c', 'cpp'):
-            # TODO: 78.3 — CMake build
-            logger.error(
-                f"C/C++ build not yet implemented for nros.{lang}.{platform}")
-            return 1
+            return await self._build_cmake(pkg, args, lang, platform,
+                                           additional_hooks, skip_hook_creation)
         else:
             logger.error(f"Unknown language: {lang}")
             return 1
@@ -176,6 +174,73 @@ class NrosBuildTask(TaskExtensionPoint):
         except Exception as e:
             logger.warning(f"cargo metadata failed: {e}")
             return self._find_binaries_fallback(pkg_path, target)
+
+    async def _build_cmake(self, pkg, args, lang, platform,
+                           additional_hooks, skip_hook_creation):
+        """Build a C/C++ nros package with CMake."""
+        pkg_path = Path(pkg.path).resolve()
+        install_base = Path(args.install_base).resolve()
+        build_dir = Path(args.build_base).resolve()
+
+        # 1. CMake configure
+        cmd = [
+            'cmake',
+            '-S', str(pkg_path),
+            '-B', str(build_dir),
+            f'-DCMAKE_INSTALL_PREFIX={install_base}',
+        ]
+
+        # Pass CMAKE_PREFIX_PATH so find_package(NanoRos) works.
+        # Include both the colcon install prefix and any existing prefix path.
+        prefix_paths = [str(install_base.parent)]
+        env_prefix = os.environ.get('CMAKE_PREFIX_PATH', '')
+        if env_prefix:
+            prefix_paths.append(env_prefix)
+        cmd.append(f'-DCMAKE_PREFIX_PATH={";".join(prefix_paths)}')
+
+        rc = await run(self.context, cmd)
+        if rc and rc.returncode != 0:
+            return rc.returncode
+
+        # 2. CMake build
+        rc = await run(self.context, ['cmake', '--build', str(build_dir)])
+        if rc and rc.returncode != 0:
+            return rc.returncode
+
+        # 3. CMake install (uses CMAKE_INSTALL_PREFIX set during configure)
+        rc = await run(self.context, ['cmake', '--install', str(build_dir)])
+        if rc and rc.returncode != 0:
+            return rc.returncode
+
+        # 4. Install package.xml if not already installed by CMake
+        share_dir = install_base / 'share' / pkg.name
+        share_dir.mkdir(parents=True, exist_ok=True)
+        pkg_xml = pkg_path / 'package.xml'
+        dest_xml = share_dir / 'package.xml'
+        if pkg_xml.exists() and not dest_xml.exists():
+            shutil.copy2(str(pkg_xml), str(dest_xml))
+
+        # 5. Create ament resource index marker
+        resource_dir = share_dir / 'ament_index' / 'resource_index' / 'packages'
+        resource_dir.mkdir(parents=True, exist_ok=True)
+        (resource_dir / pkg.name).touch()
+
+        # 6. Create environment hooks
+        if not skip_hook_creation:
+            hooks = additional_hooks or []
+            hooks.extend(
+                create_environment_hook(
+                    'ament_prefix_path', install_base, pkg.name,
+                    'AMENT_PREFIX_PATH', '', mode='prepend',
+                )
+            )
+            default_hooks = create_environment_hooks(
+                str(install_base), pkg.name)
+            create_environment_scripts(
+                pkg, args, default_hooks=default_hooks,
+                additional_hooks=hooks)
+
+        return 0
 
     def _find_binaries_fallback(self, pkg_path, target):
         """Fallback: scan target/release/ for executable files."""

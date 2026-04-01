@@ -97,7 +97,10 @@ class NrosBuildTask(TaskExtensionPoint):
         if rc:
             return rc
 
-        if lang == 'rust':
+        if platform == 'zephyr':
+            return await self._build_zephyr(pkg, args, lang,
+                                            additional_hooks, skip_hook_creation)
+        elif lang == 'rust':
             return await self._build_rust(pkg, args, platform,
                                           additional_hooks, skip_hook_creation)
         elif lang in ('c', 'cpp'):
@@ -201,6 +204,87 @@ class NrosBuildTask(TaskExtensionPoint):
             dest = lib_dir / bin_path.name
             shutil.copy2(str(bin_path), str(dest))
             logger.info(f"Installed {bin_path.name} → {dest}")
+
+        # 3. Install package.xml
+        share_dir = install_base / 'share' / pkg.name
+        share_dir.mkdir(parents=True, exist_ok=True)
+        pkg_xml = pkg_path / 'package.xml'
+        if pkg_xml.exists():
+            shutil.copy2(str(pkg_xml), str(share_dir / 'package.xml'))
+
+        # 4. Create ament resource index marker
+        resource_dir = share_dir / 'ament_index' / 'resource_index' / 'packages'
+        resource_dir.mkdir(parents=True, exist_ok=True)
+        (resource_dir / pkg.name).touch()
+
+        # 5. Create environment hooks
+        if not skip_hook_creation:
+            hooks = additional_hooks or []
+            hooks.extend(
+                create_environment_hook(
+                    'ament_prefix_path', install_base, pkg.name,
+                    'AMENT_PREFIX_PATH', '', mode='prepend',
+                )
+            )
+            default_hooks = create_environment_hooks(
+                str(install_base), pkg.name)
+            create_environment_scripts(
+                pkg, args, default_hooks=default_hooks,
+                additional_hooks=hooks)
+
+        return 0
+
+    async def _build_zephyr(self, pkg, args, lang,
+                            additional_hooks, skip_hook_creation):
+        """Build a Zephyr nros package with west build."""
+        pkg_path = Path(pkg.path).resolve()
+        install_base = Path(args.install_base).resolve()
+        build_dir = Path(args.build_base).resolve()
+
+        # Zephyr requires ZEPHYR_BASE and west workspace
+        zephyr_base = os.environ.get('ZEPHYR_BASE')
+        if not zephyr_base:
+            logger.error(
+                "ZEPHYR_BASE not set. Source the Zephyr environment first:\n"
+                "  source <zephyr-workspace>/zephyr/zephyr-env.sh")
+            return 1
+
+        # Read board from config.toml or environment
+        board = os.environ.get('NROS_ZEPHYR_BOARD', 'native_sim')
+
+        # 1. west build
+        cmd = [
+            'west', 'build',
+            '-b', board,
+            '-d', str(build_dir),
+            '-p', 'auto',
+            str(pkg_path),
+        ]
+
+        # Pass CMAKE_PREFIX_PATH for find_package(NanoRos)
+        prefix_paths = [str(install_base.parent)]
+        env_prefix = os.environ.get('CMAKE_PREFIX_PATH', '')
+        if env_prefix:
+            prefix_paths.append(env_prefix)
+        cmd.extend(['--', f'-DCMAKE_PREFIX_PATH={";".join(prefix_paths)}'])
+
+        rc = await run(self.context, cmd)
+        if rc and rc.returncode != 0:
+            return rc.returncode
+
+        # 2. Find and install binary
+        # native_sim produces zephyr.exe; hardware boards produce zephyr.elf
+        for bin_name in ('zephyr.exe', 'zephyr.elf'):
+            bin_path = build_dir / 'zephyr' / bin_name
+            if bin_path.exists():
+                lib_dir = install_base / 'lib' / pkg.name
+                lib_dir.mkdir(parents=True, exist_ok=True)
+                dest = lib_dir / bin_name
+                shutil.copy2(str(bin_path), str(dest))
+                logger.info(f"Installed {bin_name} → {dest}")
+                break
+        else:
+            logger.warning(f"No Zephyr binary found in {build_dir / 'zephyr'}")
 
         # 3. Install package.xml
         share_dir = install_base / 'share' / pkg.name

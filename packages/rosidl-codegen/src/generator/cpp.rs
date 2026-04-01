@@ -69,7 +69,11 @@ fn build_fields(
     let mut seq_structs = Vec::new();
 
     for field in fields {
-        cpp_fields.push(build_cpp_field(&field.name, &field.field_type, current_package));
+        cpp_fields.push(build_cpp_field(
+            &field.name,
+            &field.field_type,
+            current_package,
+        ));
         let (ffi_field, seq_struct) =
             build_cpp_ffi_field(&field.name, &field.field_type, struct_name, current_package);
         ffi_fields.push(ffi_field);
@@ -137,11 +141,7 @@ fn extract_intra_package_includes(
     includes
 }
 
-fn collect_field_type_intra_pkg_includes(
-    ft: &FieldType,
-    c_pkg: &str,
-    includes: &mut Vec<String>,
-) {
+fn collect_field_type_intra_pkg_includes(ft: &FieldType, c_pkg: &str, includes: &mut Vec<String>) {
     match ft {
         FieldType::NamespacedType {
             package: None,
@@ -341,8 +341,7 @@ pub fn generate_cpp_service_package(
         deps
     };
     let intra_package_includes = {
-        let mut incs =
-            extract_intra_package_includes(&service.request.fields, package_name);
+        let mut incs = extract_intra_package_includes(&service.request.fields, package_name);
         for i in extract_intra_package_includes(&service.response.fields, package_name) {
             if !incs.contains(&i) {
                 incs.push(i);

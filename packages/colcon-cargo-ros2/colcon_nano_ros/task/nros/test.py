@@ -11,7 +11,7 @@ from colcon_core.logging import colcon_logger
 from colcon_core.plugin_system import satisfies_version
 from colcon_core.task import TaskExtensionPoint
 
-from .build import PLATFORM_TARGETS, parse_nros_type
+from .build import parse_nros_type
 
 logger = colcon_logger.getChild(__name__)
 
@@ -29,11 +29,11 @@ class NrosTestTask(TaskExtensionPoint):
     - zephyr: run native_sim binary directly
     """
 
-    def __init__(self):
+    def __init__(self):  # noqa: D107
         super().__init__()
         satisfies_version(TaskExtensionPoint.EXTENSION_POINT_VERSION, "^1.0")
 
-    async def test(self, *, additional_hooks=None):
+    async def test(self, *, additional_hooks=None):  # noqa: D102
         pkg = self.context.pkg
         args = self.context.args
 

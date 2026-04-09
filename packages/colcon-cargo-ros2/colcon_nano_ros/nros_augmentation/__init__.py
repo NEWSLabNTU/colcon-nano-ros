@@ -1,7 +1,6 @@
 # Licensed under the Apache License, Version 2.0
 
 import os
-import subprocess
 from pathlib import Path
 
 from colcon_core.logging import colcon_logger
@@ -48,11 +47,11 @@ class NrosBindingAugmentation(PackageAugmentationExtensionPoint):
     _needs_cpp = False  # At least one C++ nros package exists
     _generated = False  # Bindings already generated this run
 
-    def __init__(self):
+    def __init__(self):  # noqa: D107
         super().__init__()
         satisfies_version(PackageAugmentationExtensionPoint.EXTENSION_POINT_VERSION, "^1.0")
 
-    def augment_packages(self, descs, *, additional_argument_names=None):
+    def augment_packages(self, descs, *, additional_argument_names=None):  # noqa: D102
         if NrosBindingAugmentation._generated:
             return
 

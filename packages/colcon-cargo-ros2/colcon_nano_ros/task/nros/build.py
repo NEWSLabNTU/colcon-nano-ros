@@ -84,11 +84,11 @@ class NrosBuildTask(TaskExtensionPoint):
     or CMake platform module (C/C++), not by this task.
     """
 
-    def __init__(self):
+    def __init__(self):  # noqa: D107
         super().__init__()
         satisfies_version(TaskExtensionPoint.EXTENSION_POINT_VERSION, "^1.0")
 
-    async def build(self, *, additional_hooks=None, skip_hook_creation=False):
+    async def build(self, *, additional_hooks=None, skip_hook_creation=False):  # noqa: D102
         pkg = self.context.pkg
         args = self.context.args
 
@@ -431,8 +431,8 @@ class NrosBuildTask(TaskExtensionPoint):
                 )
 
             # Pass RMW and platform to the NanoRos CMake config
-            cmd.append(f"-DNANO_ROS_RMW=zenoh")
-            cmd.append(f"-DNANO_ROS_PLATFORM=freertos_armcm3")
+            cmd.append("-DNANO_ROS_RMW=zenoh")
+            cmd.append("-DNANO_ROS_PLATFORM=freertos_armcm3")
 
         # Forward SDK environment variables as CMake -D flags.
         # The CMake platform support module reads these.

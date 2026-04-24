@@ -301,9 +301,12 @@ fn test_generate_c_with_dependencies() {
     let output_dir = temp_dir.path().join("output");
     let umbrella = fs::read_to_string(output_dir.join("dep_test.h")).unwrap();
 
-    // Dependencies should be included in umbrella header
-    assert!(umbrella.contains("#include <std_msgs.h>"));
-    assert!(umbrella.contains("#include <geometry_msgs.h>"));
+    // Dependencies should be included in umbrella header.
+    // Format is `<pkg>/<pkg>.h` — see `generate_umbrella_header` for why:
+    // the build system doesn't put each package directory directly on the
+    // include path, so the nested path is required.
+    assert!(umbrella.contains("#include <std_msgs/std_msgs.h>"));
+    assert!(umbrella.contains("#include <geometry_msgs/geometry_msgs.h>"));
 }
 
 #[test]

@@ -195,6 +195,7 @@ mod tests {
 
     #[test]
     fn test_cache_insert_get() {
+        let temp_dir = tempfile::tempdir().unwrap();
         let mut cache = Cache::new();
         let entry = CacheEntry {
             package_name: "test_msgs".to_string(),
@@ -202,7 +203,7 @@ mod tests {
             ros_distro: Some("humble".to_string()),
             package_version: Some("1.0.0".to_string()),
             timestamp: 1234567890,
-            output_dir: PathBuf::from("/tmp/test"),
+            output_dir: temp_dir.path().to_path_buf(),
         };
 
         cache.insert(entry.clone());
@@ -214,6 +215,7 @@ mod tests {
 
     #[test]
     fn test_cache_remove() {
+        let temp_dir = tempfile::tempdir().unwrap();
         let mut cache = Cache::new();
         let entry = CacheEntry {
             package_name: "test_msgs".to_string(),
@@ -221,7 +223,7 @@ mod tests {
             ros_distro: None,
             package_version: None,
             timestamp: 1234567890,
-            output_dir: PathBuf::from("/tmp/test"),
+            output_dir: temp_dir.path().to_path_buf(),
         };
 
         cache.insert(entry);
@@ -235,6 +237,7 @@ mod tests {
     fn test_cache_load_save() {
         let temp_dir = tempfile::tempdir().unwrap();
         let cache_file = temp_dir.path().join(CACHE_FILE_NAME);
+        let output_dir = temp_dir.path().join("output");
 
         // Create and save cache
         let mut cache = Cache::new();
@@ -244,7 +247,7 @@ mod tests {
             ros_distro: Some("iron".to_string()),
             package_version: Some("2.0.0".to_string()),
             timestamp: 9876543210,
-            output_dir: PathBuf::from("/tmp/test2"),
+            output_dir,
         });
 
         cache.save(&cache_file).unwrap();

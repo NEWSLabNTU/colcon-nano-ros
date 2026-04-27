@@ -312,9 +312,9 @@ fn scaffold_rust(name: &str, platform: &str, dir: &Path) -> Result<()> {
         ));
         // Default board crate based on platform
         let board_crate = match platform {
-            "freertos" => "nros-mps2-an385-freertos",
-            "baremetal" => "nros-mps2-an385",
-            "nuttx" => "nros-nuttx-qemu-arm",
+            "freertos" => "nros-board-mps2-an385-freertos",
+            "baremetal" => "nros-board-mps2-an385",
+            "nuttx" => "nros-board-nuttx-qemu-arm",
             _ => "# TODO: add board crate for this platform",
         };
         deps.push_str(&format!("{board_crate} = {{ version = \"0.1\" }}\n"));
@@ -350,7 +350,7 @@ path = "src/main.rs"
 
 use nros::prelude::*;
 // TODO: import your board crate
-// use nros_mps2_an385_freertos::{{Config, run, println}};
+// use nros_board_mps2_an385_freertos::{{Config, run, println}};
 use panic_semihosting as _;
 
 #[unsafe(no_mangle)]

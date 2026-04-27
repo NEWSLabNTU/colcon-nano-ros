@@ -45,6 +45,22 @@ use rosidl_codegen::RosEdition;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
+/// Idempotent file write — skip the write (and the mtime bump) if the file
+/// already contains exactly the same bytes. Codegen reruns under cmake
+/// otherwise pump fresh mtimes into hundreds of generated files every build,
+/// causing cargo to recompile every downstream FFI crate even when nothing
+/// actually changed.
+fn write_if_changed<P: AsRef<Path>, C: AsRef<[u8]>>(path: P, contents: C) -> std::io::Result<()> {
+    let path = path.as_ref();
+    let new = contents.as_ref();
+    if let Ok(existing) = std::fs::read(path) {
+        if existing == new {
+            return Ok(());
+        }
+    }
+    std::fs::write(path, new)
+}
+
 /// Path to bundled interface files relative to the cargo-nano-ros crate root.
 /// These are shipped with nros so codegen works without a ROS 2 environment.
 const BUNDLED_INTERFACES_DIR: &str = "interfaces";
@@ -336,7 +352,7 @@ fn apply_package_renames(
                     content.replace(&format!("{}/std", old_name), &format!("{}/std", new_name));
             }
 
-            fs::write(&cargo_path, content)?;
+            write_if_changed(&cargo_path, content)?;
         }
 
         // Fix Rust source files: replace `old_ident::` with `new_ident::`
@@ -381,7 +397,7 @@ fn fix_rust_idents_recursive(
             }
 
             if changed {
-                fs::write(&path, content)?;
+                write_if_changed(&path, content)?;
             }
         }
     }
@@ -760,8 +776,8 @@ pub fn generate_c_from_args_file(config: GenerateCConfig) -> Result<()> {
                 // Write header and source
                 let header_path = msg_dir.join(&generated.header_name);
                 let source_path = msg_dir.join(&generated.source_name);
-                std::fs::write(&header_path, &generated.header)?;
-                std::fs::write(&source_path, &generated.source)?;
+                write_if_changed(&header_path, &generated.header)?;
+                write_if_changed(&source_path, &generated.source)?;
 
                 msg_headers.push(generated.header_name);
 
@@ -786,8 +802,8 @@ pub fn generate_c_from_args_file(config: GenerateCConfig) -> Result<()> {
                 // Write header and source
                 let header_path = srv_dir.join(&generated.header_name);
                 let source_path = srv_dir.join(&generated.source_name);
-                std::fs::write(&header_path, &generated.header)?;
-                std::fs::write(&source_path, &generated.source)?;
+                write_if_changed(&header_path, &generated.header)?;
+                write_if_changed(&source_path, &generated.source)?;
 
                 srv_headers.push(generated.header_name);
 
@@ -810,8 +826,8 @@ pub fn generate_c_from_args_file(config: GenerateCConfig) -> Result<()> {
                 // Write header and source
                 let header_path = action_dir.join(&generated.header_name);
                 let source_path = action_dir.join(&generated.source_name);
-                std::fs::write(&header_path, &generated.header)?;
-                std::fs::write(&source_path, &generated.source)?;
+                write_if_changed(&header_path, &generated.header)?;
+                write_if_changed(&source_path, &generated.source)?;
 
                 action_headers.push(generated.header_name);
 
@@ -837,7 +853,7 @@ pub fn generate_c_from_args_file(config: GenerateCConfig) -> Result<()> {
         &args.dependencies,
     );
     let umbrella_path = args.output_dir.join(format!("{}.h", args.package_name));
-    std::fs::write(&umbrella_path, umbrella_header)?;
+    write_if_changed(&umbrella_path, umbrella_header)?;
 
     if config.verbose {
         println!("  Generated umbrella header: {}.h", args.package_name);
@@ -988,8 +1004,8 @@ pub fn generate_c_from_package_xml(config: GenerateCStandaloneConfig) -> Result<
                     let generated = rosidl_codegen::generate_c_message_package(
                         pkg_name, file_name, &parsed, type_hash,
                     )?;
-                    std::fs::write(msg_dir.join(&generated.header_name), &generated.header)?;
-                    std::fs::write(msg_dir.join(&generated.source_name), &generated.source)?;
+                    write_if_changed(msg_dir.join(&generated.header_name), &generated.header)?;
+                    write_if_changed(msg_dir.join(&generated.source_name), &generated.source)?;
                     msg_headers.push(generated.header_name);
                 }
                 "srv" => {
@@ -998,8 +1014,8 @@ pub fn generate_c_from_package_xml(config: GenerateCStandaloneConfig) -> Result<
                     let generated = rosidl_codegen::generate_c_service_package(
                         pkg_name, file_name, &parsed, type_hash,
                     )?;
-                    std::fs::write(srv_dir.join(&generated.header_name), &generated.header)?;
-                    std::fs::write(srv_dir.join(&generated.source_name), &generated.source)?;
+                    write_if_changed(srv_dir.join(&generated.header_name), &generated.header)?;
+                    write_if_changed(srv_dir.join(&generated.source_name), &generated.source)?;
                     srv_headers.push(generated.header_name);
                 }
                 "action" => {
@@ -1008,8 +1024,8 @@ pub fn generate_c_from_package_xml(config: GenerateCStandaloneConfig) -> Result<
                     let generated = rosidl_codegen::generate_c_action_package(
                         pkg_name, file_name, &parsed, type_hash,
                     )?;
-                    std::fs::write(action_dir.join(&generated.header_name), &generated.header)?;
-                    std::fs::write(action_dir.join(&generated.source_name), &generated.source)?;
+                    write_if_changed(action_dir.join(&generated.header_name), &generated.header)?;
+                    write_if_changed(action_dir.join(&generated.source_name), &generated.source)?;
                     action_headers.push(generated.header_name);
                 }
                 _ => {}
@@ -1024,7 +1040,7 @@ pub fn generate_c_from_package_xml(config: GenerateCStandaloneConfig) -> Result<
             &action_headers,
             &pkg_deps,
         );
-        std::fs::write(pkg_output.join(format!("{}.h", pkg_name)), umbrella)?;
+        write_if_changed(pkg_output.join(format!("{}.h", pkg_name)), umbrella)?;
 
         println!(
             "  ✓ {} ({} messages, {} services, {} actions)",
@@ -1090,7 +1106,7 @@ pub fn resolve_deps_from_package_xml(config: ResolveDepsConfig) -> Result<()> {
 
     if interface_packages.is_empty() {
         // Write an empty resolved list
-        std::fs::write(
+        write_if_changed(
             &config.output_cmake,
             "# Auto-generated by nros-codegen resolve-deps\nset(_NROS_RESOLVED_PACKAGES \"\")\n",
         )?;
@@ -1214,7 +1230,7 @@ pub fn resolve_deps_from_package_xml(config: ResolveDepsConfig) -> Result<()> {
     if let Some(parent) = config.output_cmake.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    std::fs::write(&config.output_cmake, cmake)?;
+    write_if_changed(&config.output_cmake, cmake)?;
 
     if config.verbose {
         eprintln!(
@@ -1292,8 +1308,8 @@ pub fn generate_cpp_from_args_file(config: GenerateCppConfig) -> Result<()> {
                 })?;
 
                 // Write header and FFI Rust glue
-                std::fs::write(msg_dir.join(&generated.header_name), &generated.header)?;
-                std::fs::write(msg_dir.join(&generated.ffi_rs_name), &generated.ffi_rs)?;
+                write_if_changed(msg_dir.join(&generated.header_name), &generated.header)?;
+                write_if_changed(msg_dir.join(&generated.ffi_rs_name), &generated.ffi_rs)?;
 
                 msg_headers.push(generated.header_name);
                 ffi_rs_files.push(format!("msg/{}", generated.ffi_rs_name));
@@ -1317,12 +1333,12 @@ pub fn generate_cpp_from_args_file(config: GenerateCppConfig) -> Result<()> {
                 })?;
 
                 // Write header and FFI Rust glue
-                std::fs::write(srv_dir.join(&generated.header_name), &generated.header)?;
-                std::fs::write(
+                write_if_changed(srv_dir.join(&generated.header_name), &generated.header)?;
+                write_if_changed(
                     srv_dir.join(&generated.request_ffi_rs_name),
                     &generated.request_ffi_rs,
                 )?;
-                std::fs::write(
+                write_if_changed(
                     srv_dir.join(&generated.response_ffi_rs_name),
                     &generated.response_ffi_rs,
                 )?;
@@ -1350,16 +1366,16 @@ pub fn generate_cpp_from_args_file(config: GenerateCppConfig) -> Result<()> {
                 })?;
 
                 // Write header and FFI Rust glue
-                std::fs::write(action_dir.join(&generated.header_name), &generated.header)?;
-                std::fs::write(
+                write_if_changed(action_dir.join(&generated.header_name), &generated.header)?;
+                write_if_changed(
                     action_dir.join(&generated.goal_ffi_rs_name),
                     &generated.goal_ffi_rs,
                 )?;
-                std::fs::write(
+                write_if_changed(
                     action_dir.join(&generated.result_ffi_rs_name),
                     &generated.result_ffi_rs,
                 )?;
-                std::fs::write(
+                write_if_changed(
                     action_dir.join(&generated.feedback_ffi_rs_name),
                     &generated.feedback_ffi_rs,
                 )?;
@@ -1391,12 +1407,12 @@ pub fn generate_cpp_from_args_file(config: GenerateCppConfig) -> Result<()> {
         &args.dependencies,
     );
     let umbrella_path = args.output_dir.join(format!("{}.hpp", args.package_name));
-    std::fs::write(&umbrella_path, umbrella_hpp)?;
+    write_if_changed(&umbrella_path, umbrella_hpp)?;
 
     // Generate Rust FFI mod.rs
     let mod_rs = generate_ffi_mod_rs(&ffi_rs_files);
     let mod_rs_path = args.output_dir.join("mod.rs");
-    std::fs::write(&mod_rs_path, mod_rs)?;
+    write_if_changed(&mod_rs_path, mod_rs)?;
 
     if config.verbose {
         println!("  Generated umbrella header: {}.hpp", args.package_name);

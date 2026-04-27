@@ -18,6 +18,20 @@ use rosidl_codegen::{
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
+/// Idempotent write — skip the rewrite when content matches so the file's
+/// mtime doesn't bump on every codegen run (cmake's mtime-driven rebuilds
+/// otherwise force cargo to recompile every downstream FFI crate).
+fn write_if_changed<P: AsRef<Path>, C: AsRef<[u8]>>(path: P, contents: C) -> std::io::Result<()> {
+    let path = path.as_ref();
+    let new = contents.as_ref();
+    if let Ok(existing) = std::fs::read(path) {
+        if existing == new {
+            return Ok(());
+        }
+    }
+    std::fs::write(path, new)
+}
+
 /// Generated nros Rust package structure.
 ///
 /// Single-layer architecture with pure Rust, no_std compatible types:
@@ -89,7 +103,7 @@ pub fn generate_package(
 
         // Write message file
         let msg_file = msg_dir.join(format!("{}.rs", to_snake_case(msg_name)));
-        std::fs::write(&msg_file, &generated.message_rs)?;
+        write_if_changed(&msg_file, &generated.message_rs)?;
         message_count += 1;
     }
 
@@ -125,7 +139,7 @@ pub fn generate_package(
 
             // Write service file
             let srv_file = srv_dir.join(format!("{}.rs", to_snake_case(srv_name)));
-            std::fs::write(&srv_file, &generated.service_rs)?;
+            write_if_changed(&srv_file, &generated.service_rs)?;
             service_count += 1;
         }
     }
@@ -166,7 +180,7 @@ pub fn generate_package(
 
             // Write action file
             let action_file = action_dir.join(format!("{}.rs", to_snake_case(action_name)));
-            std::fs::write(&action_file, &generated.action_rs)?;
+            write_if_changed(&action_file, &generated.action_rs)?;
             action_count += 1;
         }
     }
@@ -220,7 +234,7 @@ fn generate_msg_mod_rs(msg_dir: &Path, package: &Package) -> Result<()> {
         content.push_str(&format!("pub use {}::{};\n\n", module_name, msg_name));
     }
 
-    std::fs::write(msg_dir.join("mod.rs"), content)?;
+    write_if_changed(msg_dir.join("mod.rs"), content)?;
     Ok(())
 }
 
@@ -239,7 +253,7 @@ fn generate_srv_mod_rs(srv_dir: &Path, package: &Package) -> Result<()> {
         ));
     }
 
-    std::fs::write(srv_dir.join("mod.rs"), content)?;
+    write_if_changed(srv_dir.join("mod.rs"), content)?;
     Ok(())
 }
 
@@ -258,7 +272,7 @@ fn generate_action_mod_rs(action_dir: &Path, package: &Package) -> Result<()> {
         ));
     }
 
-    std::fs::write(action_dir.join("mod.rs"), content)?;
+    write_if_changed(action_dir.join("mod.rs"), content)?;
     Ok(())
 }
 
@@ -281,7 +295,7 @@ fn generate_lib_rs(src_dir: &Path, package: &Package) -> Result<()> {
         content.push_str("pub mod action;\n");
     }
 
-    std::fs::write(src_dir.join("lib.rs"), content)?;
+    write_if_changed(src_dir.join("lib.rs"), content)?;
     Ok(())
 }
 
@@ -335,7 +349,7 @@ heapless = "0.8"
         ));
     }
 
-    std::fs::write(output_dir.join("Cargo.toml"), cargo_toml)?;
+    write_if_changed(output_dir.join("Cargo.toml"), cargo_toml)?;
     Ok(())
 }
 
@@ -352,12 +366,12 @@ mod tests {
         // Create msg files
         let msg_dir = share_dir.join("msg");
         fs::create_dir_all(&msg_dir).unwrap();
-        fs::write(msg_dir.join("Point.msg"), "float64 x\nfloat64 y\n").unwrap();
+        write_if_changed(msg_dir.join("Point.msg"), "float64 x\nfloat64 y\n").unwrap();
 
         // Create srv files
         let srv_dir = share_dir.join("srv");
         fs::create_dir_all(&srv_dir).unwrap();
-        fs::write(
+        write_if_changed(
             srv_dir.join("AddTwoInts.srv"),
             "int64 a\nint64 b\n---\nint64 sum\n",
         )
@@ -407,7 +421,7 @@ mod tests {
         // Create message file
         let msg_dir = share_dir.join("msg");
         fs::create_dir_all(&msg_dir).unwrap();
-        fs::write(msg_dir.join("Point.msg"), "float64 x\nfloat64 y\n").unwrap();
+        write_if_changed(msg_dir.join("Point.msg"), "float64 x\nfloat64 y\n").unwrap();
 
         // Create package.xml with specific version
         let package_xml = r#"<?xml version="1.0"?>
@@ -417,7 +431,7 @@ mod tests {
   <description>Test nros messages</description>
 </package>
 "#;
-        fs::write(share_dir.join("package.xml"), package_xml).unwrap();
+        write_if_changed(share_dir.join("package.xml"), package_xml).unwrap();
 
         let package = Package::from_share_dir(share_dir).unwrap();
         let output_dir = temp_dir.path().join("output");
@@ -463,7 +477,7 @@ mod tests {
         // Create only message files (no services)
         let msg_dir = share_dir.join("msg");
         fs::create_dir_all(&msg_dir).unwrap();
-        fs::write(msg_dir.join("Int32.msg"), "int32 data\n").unwrap();
+        write_if_changed(msg_dir.join("Int32.msg"), "int32 data\n").unwrap();
 
         let package = Package::from_share_dir(share_dir).unwrap();
         let output_dir = temp_dir.path().join("output");

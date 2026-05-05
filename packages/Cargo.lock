@@ -321,6 +321,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "clap_complete"
+version = "4.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "660c0520455b1013b9bcb0393d5f643d7e4454fb69c915b8d6d2aa0e9a45acc3"
+dependencies = [
+ "clap",
+]
+
+[[package]]
 name = "clap_derive"
 version = "4.5.49"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -763,6 +772,7 @@ name = "nros-cli"
 version = "0.2.0"
 dependencies = [
  "clap",
+ "clap_complete",
  "eyre",
  "nros-cli-core",
 ]
@@ -778,6 +788,7 @@ dependencies = [
  "serde",
  "serde_json",
  "toml",
+ "toml_edit",
 ]
 
 [[package]]
